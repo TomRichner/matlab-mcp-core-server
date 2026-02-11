@@ -140,7 +140,7 @@ Both mechanisms are required for MATLAB to survive server restarts. The wire pro
 
 ### Method: `matlabmanager.ReconnectToSession()`
 
-Creates a client from saved connection details (without launching MATLAB), pings to verify liveness, and registers in the session store with a no-op cleanup function (since we didn't launch the process).
+Creates a client from saved connection details (without launching MATLAB), pings to verify liveness, and registers in the session store with a no-op cleanup function (since we didn't launch the process). Also stores `lastConnectionDetails` (so `writeSessionFile` can persist the session) and sets `detached` mode on the wrapper (so the adopted MATLAB survives the next server shutdown).
 
 ### Modified: `matlabmanager.matlabSessionClientWithCleanup`
 
