@@ -52,7 +52,7 @@ func TestMATLABManager_ListEnvironments_HappyPath(t *testing.T) {
 		Return(mockResponse).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABManager, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABManager, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	// Act
@@ -89,7 +89,7 @@ func TestMATLABManager_ListEnvironments_EmptyList(t *testing.T) {
 		Return(mockResponse).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABManager, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABManager, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	// Act

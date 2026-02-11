@@ -62,7 +62,7 @@ func TestMATLABManager_StartMATLABSession_HappyPath(t *testing.T) {
 		Return(expectedSessionID).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	startRequest := entities.LocalSessionDetails{
@@ -104,7 +104,7 @@ func TestMATLABManager_StartMATLABSession_MATLABServicesError(t *testing.T) {
 		Return(embeddedconnector.ConnectionDetails{}, nil, expectedError).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	startRequest := entities.LocalSessionDetails{
@@ -156,7 +156,7 @@ func TestMATLABManager_StartMATLABSession_ClientFactoryError(t *testing.T) {
 		Return(nil, expectedError).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	startRequest := entities.LocalSessionDetails{

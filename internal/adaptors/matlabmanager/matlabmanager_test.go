@@ -22,7 +22,7 @@ func TestNew_HappyPath(t *testing.T) {
 	defer mockClientFactory.AssertExpectations(t)
 
 	// Act
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Assert
 	assert.NotNil(t, manager, "MATLABManager should not be nil")

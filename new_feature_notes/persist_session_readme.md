@@ -2,9 +2,12 @@
 
 ## Overview
 
-When the MATLAB MCP server starts, it normally launches a fresh MATLAB process. If the server restarts (e.g., VS Code reloads), the old MATLAB process becomes orphaned and a new one is launched. This wastes resources and loses session state.
+When the MATLAB MCP server starts, it normally launches a fresh MATLAB process. If the server restarts (e.g., VS Code reloads), the old MATLAB process is killed on shutdown (post v0.1.0) and a new one is launched. This wastes resources and loses session state.
 
-**Session persistence** solves this by saving MATLAB connection details to a file after launch, then reading that file on startup to reconnect to the existing MATLAB process instead of launching a new one.
+**Session persistence** solves this by:
+1. Saving MATLAB connection details to a file after launch
+2. Keeping MATLAB alive across server restarts (detached mode)
+3. Reading the session file on next startup to reconnect instead of launching a new process
 
 ## CLI Flags
 
@@ -63,6 +66,7 @@ Server starts
 3. **No session file** → Starts new MATLAB normally, writes session file
 4. **Feature disabled** (`SessionPersistenceConfig{}`) → Identical to pre-feature behavior, no file I/O
 5. **Session file write fails** → Logged as warning, server continues normally (best-effort)
+6. **Server shutdown with `--use-last-session`** → MATLAB is NOT killed (detached mode); without the flag, MATLAB is stopped normally
 
 ## Architecture
 
@@ -86,9 +90,22 @@ type SessionPersistenceConfig struct {
 
 A zero-value struct disables the feature. This is injected via wire at construction time, avoiding any extra `Config()` calls during the hot path. Existing tests pass `SessionPersistenceConfig{}` and require zero changes to their mock expectations.
 
+### Detached Mode: `matlabmanager.DetachedMode`
+
+A named `bool` type used by wire to inject the `UseLastSession` flag into two places:
+
+1. **`MATLABManager`** — sets `detached=true` on session wrappers so `StopSession()` is a no-op (won't send `exit()` to MATLAB)
+2. **`localmatlabsession.Starter`** — sets `SkipWatchdog=true` so MATLAB is not registered with the watchdog process (the watchdog normally monitors the server and kills all registered child processes when the server dies)
+
+Both mechanisms are required for MATLAB to survive server restarts. The wire provider chain is: `SessionPersistenceConfig` → `provideDetachedMode()` → `DetachedMode` → `matlabmanager.New()` + `provideStarter()`.
+
 ### New Method: `matlabmanager.ReconnectToSession()`
 
 Creates a client from saved connection details (without launching MATLAB), pings to verify liveness, and registers in the session store with a no-op cleanup function (since we didn't launch the process).
+
+### Modified: `matlabmanager.matlabSessionClientWithCleanup`
+
+Added a `detached bool` field. When `detached` is true, `StopSession()` returns nil immediately without sending `exit()` to MATLAB or running the process cleanup. This is set by `MATLABManager` when `DetachedMode` is enabled.
 
 ### New Method: `matlabmanager.LastConnectionDetails()`
 
@@ -124,14 +141,17 @@ The **global** `entities.MATLABManager` interface was NOT changed — these meth
 | `messagekeys.go` | Added message keys |
 | `messages.go` | Added description strings |
 | `globalmatlab/globalmatlab.go` | Core session persistence logic, `SessionPersistenceConfig`, `NewSessionPersistenceConfig`, `tryReconnectFromFile`, `writeSessionFile` |
-| `matlabmanager/matlabmanager.go` | Added `lastConnectionDetails` field and accessor |
-| `matlabmanager/startmatlabsesssion.go` | Stores connection details after launch |
-| `wire/wire.go` | Added `NewSessionPersistenceConfig` provider |
-| `wire/wire_gen.go` | Updated generated code |
-| `mocks/.../Config.go` | Added mock methods for new config accessors |
-| `mocks/.../MATLABManager.go` | Added mock methods for new interface methods |
+| `matlabmanager/matlabmanager.go` | Added `lastConnectionDetails` field, `DetachedMode` type, accessor |
+| `matlabmanager/matlabsessionclientwithcleanup.go` | Added `detached` field; `StopSession()` is no-op when true |
+| `matlabmanager/startmatlabsesssion.go` | Stores connection details, sets `detached` flag on wrapper |
+| `localmatlabsession/localmatlabsession.go` | Added `SkipWatchdog` field; conditionally skips watchdog registration |
+| `wire/wire.go` | Added `provideDetachedMode`, `provideStarter` providers |
+| `wire/wire_gen.go` | Regenerated via `make wire` |
+| `mocks/.../Config.go` | Regenerated via `make mockery` |
+| `mocks/.../MATLABManager.go` | Regenerated via `make mockery` |
 | `globalmatlab_test.go` | Updated constructor calls (5th arg) |
 | `globalmatlab_client_test.go` | Updated constructor calls (5th arg) |
+| `tests/testconfig/config_darwin.go` | **New** — macOS test config (unblocks `make mockery` on Mac) |
 
 ## Test Coverage
 
@@ -143,12 +163,25 @@ The **global** `entities.MATLABManager` interface was NOT changed — these meth
 
 All 16 pre-existing globalmatlab tests continue to pass with zero mock expectation changes.
 
+## Generated Files Workflow
+
+All generated files are regenerated using Makefile targets — **never edit them by hand**:
+
+```bash
+make wire      # Regenerates internal/wire/wire_gen.go from wire.go
+make mockery   # Regenerates all files in mocks/ and tests/mocks/
+```
+
+> **Note:** `make mockery` deletes `mocks/` and `tests/mocks/` before regenerating. If mockery fails mid-run, restore from git: `git checkout HEAD -- mocks/ tests/mocks/`
+
 ## Known Limitations & Future Work
 
-1. **No shutdown cleanup** — The session file is not deleted on graceful server shutdown. If MATLAB is killed during shutdown, the stale file causes a failed reconnect attempt on next startup (which falls back gracefully but wastes time).
+1. **Session file not deleted on shutdown** — If MATLAB crashes independently, the stale session file causes a failed reconnect attempt on next startup (falls back gracefully but wastes a few seconds).
 
 2. **Multi-instance safety** — Two VS Code windows using the same default session file directory will overwrite each other's session file. Consider namespacing by workspace or PID.
 
 3. **No session file locking** — Concurrent read/write is theoretically possible but unlikely in practice since the MCP server is single-instance per VS Code window.
 
-4. **Certificate rotation** — If MATLAB's self-signed TLS certificate changes (e.g., after an update), the saved cert will be invalid. The reconnect will fail and fall back to a new session.
+4. **Certificate rotation** — If MATLAB's self-signed TLS certificate changes, the saved cert will be invalid. Reconnect will fail and fall back to a new session.
+
+5. **Orphaned MATLAB on crash** — Detached mode means MATLAB survives shutdown, but if the server crashes without writing a session file, MATLAB will remain orphaned until manually killed.

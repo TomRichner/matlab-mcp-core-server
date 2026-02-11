@@ -254,6 +254,7 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 
 		// MATLAB Manager
 		matlabmanager.New,
+		provideDetachedMode,
 		wire.Bind(new(matlabmanager.MATLABServices), new(*matlabservices.MATLABServices)),
 		wire.Bind(new(matlabmanager.MATLABSessionStore), new(*matlabsessionstore.Store)),
 		wire.Bind(new(matlabmanager.MATLABSessionClientFactory), new(*matlabsessionclient.Factory)),
@@ -279,7 +280,7 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 		wire.Bind(new(matlabversion.IOLayer), new(*iofacade.IoFacade)),
 
 		// Local MATLAB Session
-		localmatlabsession.NewStarter,
+		provideStarter,
 		wire.Bind(new(localmatlabsession.SessionDirectoryFactory), new(*localmatlabsessiondirectory.Factory)),
 		wire.Bind(new(localmatlabsession.ProcessDetails), new(*processdetails.ProcessDetails)),
 		wire.Bind(new(localmatlabsession.MATLABProcessLauncher), new(*processlauncher.MATLABProcessLauncher)),
@@ -377,4 +378,20 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 	)
 
 	return nil
+}
+
+func provideDetachedMode(cfg globalmatlab.SessionPersistenceConfig) matlabmanager.DetachedMode {
+	return matlabmanager.DetachedMode(cfg.UseLastSession)
+}
+
+func provideStarter(
+	directoryFactory localmatlabsession.SessionDirectoryFactory,
+	processDetails localmatlabsession.ProcessDetails,
+	matlabProcessLauncher localmatlabsession.MATLABProcessLauncher,
+	watchdog localmatlabsession.Watchdog,
+	detachedMode matlabmanager.DetachedMode,
+) *localmatlabsession.Starter {
+	starter := localmatlabsession.NewStarter(directoryFactory, processDetails, matlabProcessLauncher, watchdog)
+	starter.SkipWatchdog = bool(detachedMode)
+	return starter
 }

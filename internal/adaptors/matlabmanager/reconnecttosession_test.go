@@ -56,7 +56,7 @@ func TestMATLABManager_ReconnectToSession_HappyPath(t *testing.T) {
 		Return(expectedSessionID).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	// Act
@@ -91,7 +91,7 @@ func TestMATLABManager_ReconnectToSession_ClientFactoryError(t *testing.T) {
 		Return(nil, assert.AnError).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	// Act
@@ -135,7 +135,7 @@ func TestMATLABManager_ReconnectToSession_PingFails(t *testing.T) {
 		Return(entities.PingResponse{IsAlive: false}).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	// Act
@@ -153,7 +153,7 @@ func TestMATLABManager_LastConnectionDetails_NilBeforeStart(t *testing.T) {
 	mockSessionStore := &mocks.MockMATLABSessionStore{}
 	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	details := manager.LastConnectionDetails()
@@ -200,7 +200,7 @@ func TestMATLABManager_LastConnectionDetails_PopulatedAfterStart(t *testing.T) {
 		Return(entities.SessionID(1)).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 	ctx := t.Context()
 
 	startRequest := entities.LocalSessionDetails{

@@ -34,6 +34,7 @@ type Starter struct {
 	processDetails        ProcessDetails
 	matlabProcessLauncher MATLABProcessLauncher
 	watchdog              Watchdog
+	SkipWatchdog          bool
 }
 
 func NewStarter(
@@ -85,8 +86,10 @@ func (m *Starter) StartLocalMATLABSession(logger entities.Logger, request dataty
 		return embeddedconnector.ConnectionDetails{}, nil, err
 	}
 
-	if err = m.watchdog.RegisterProcessPIDWithWatchdog(processID); err != nil {
-		logger.WithError(err).Warn("Failed to register process with watchdog")
+	if !m.SkipWatchdog {
+		if err = m.watchdog.RegisterProcessPIDWithWatchdog(processID); err != nil {
+			logger.WithError(err).Warn("Failed to register process with watchdog")
+		}
 	}
 
 	securePort, certificatePEM, err := sessionDir.GetEmbeddedConnectorDetails()

@@ -104,11 +104,13 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 	clientFactory := client.NewFactory()
 	factory4 := client2.NewFactory(osFacade, loggerFactory, clientFactory)
 	watchdog3 := watchdog2.New(processFactory, factory4, loggerFactory, socketFactory)
-	starter := localmatlabsession.NewStarter(factory3, processDetails, matlabProcessLauncher, watchdog3)
+	sessionPersistenceConfig := globalmatlab.NewSessionPersistenceConfig(factory)
+	detachedMode := provideDetachedMode(sessionPersistenceConfig)
+	starter := provideStarter(factory3, processDetails, matlabProcessLauncher, watchdog3, detachedMode)
 	matlabServices := matlabservices.New(matlabLocator, starter)
 	store := matlabsessionstore.New(loggerFactory, lifecycleSignaler)
 	matlabsessionclientFactory := matlabsessionclient.NewFactory(clientFactory)
-	matlabManager := matlabmanager.New(matlabServices, store, matlabsessionclientFactory)
+	matlabManager := matlabmanager.New(matlabServices, store, matlabsessionclientFactory, detachedMode)
 	usecase := listavailablematlabs.New(matlabManager)
 	tool := listavailablematlabs2.New(loggerFactory, usecase)
 	startmatlabsessionUsecase := startmatlabsession.New(matlabManager)
@@ -120,7 +122,6 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 	evalmatlabcodeTool := evalmatlabcode2.New(loggerFactory, factory, evalmatlabcodeUsecase, matlabManager)
 	matlabRootSelector := matlabrootselector.New(factory, matlabManager)
 	matlabStartingDirSelector := matlabstartingdirselector.New(factory, osFacade)
-	sessionPersistenceConfig := globalmatlab.NewSessionPersistenceConfig(factory)
 	globalMATLAB := globalmatlab.New(matlabManager, matlabRootSelector, matlabStartingDirSelector, factory, sessionPersistenceConfig)
 	tool2 := evalmatlabcode3.New(loggerFactory, factory, evalmatlabcodeUsecase, globalMATLAB)
 	checkmatlabcodeUsecase := checkmatlabcode.New(pathValidator)
@@ -162,4 +163,20 @@ type ApplicationDefinition interface {
 	Title() string
 	Instructions() string
 	Tools(loggerFactory definition.LoggerFactory) []tools.Tool
+}
+
+func provideDetachedMode(cfg globalmatlab.SessionPersistenceConfig) matlabmanager.DetachedMode {
+	return matlabmanager.DetachedMode(cfg.UseLastSession)
+}
+
+func provideStarter(
+	directoryFactory localmatlabsession.SessionDirectoryFactory,
+	processDetails localmatlabsession.ProcessDetails,
+	matlabProcessLauncher localmatlabsession.MATLABProcessLauncher, watchdog3 localmatlabsession.Watchdog,
+
+	detachedMode matlabmanager.DetachedMode,
+) *localmatlabsession.Starter {
+	starter := localmatlabsession.NewStarter(directoryFactory, processDetails, matlabProcessLauncher, watchdog3)
+	starter.SkipWatchdog = bool(detachedMode)
+	return starter
 }

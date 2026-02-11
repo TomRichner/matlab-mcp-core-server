@@ -47,7 +47,7 @@ func TestMATLABManager_StopMATLABSession_HappyPath(t *testing.T) {
 		Return().
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	err := manager.StopMATLABSession(ctx, mockLogger, expectedSessionID)
@@ -78,7 +78,7 @@ func TestMATLABManager_StopMATLABSession_SessionStoreGetError(t *testing.T) {
 		Return(nil, expectedError).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	err := manager.StopMATLABSession(ctx, mockLogger, expectedSessionID)
@@ -121,7 +121,7 @@ func TestMATLABManager_StopMATLABSession_StopSessionError(t *testing.T) {
 		Return().
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	err := manager.StopMATLABSession(ctx, mockLogger, expectedSessionID)

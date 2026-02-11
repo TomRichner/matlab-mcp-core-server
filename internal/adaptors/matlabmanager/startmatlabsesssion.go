@@ -35,7 +35,9 @@ func (m *MATLABManager) StartMATLABSession(ctx context.Context, sessionLogger en
 			return zeroValue, err
 		}
 		m.lastConnectionDetails = &embeddedConnectorEndpoint
-		client = newMATLABSessionClientWithCleanup(embeddedConnectorClient, sessionCleanup)
+		wrapper := newMATLABSessionClientWithCleanup(embeddedConnectorClient, sessionCleanup)
+		wrapper.detached = m.detachedMode
+		client = wrapper
 	default:
 		return zeroValue, fmt.Errorf("unknown request type: %T", request)
 	}

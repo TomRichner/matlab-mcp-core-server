@@ -42,7 +42,7 @@ func TestMATLABManager_GetMATLABSessionClient_HappyPath(t *testing.T) {
 		Return(entities.PingResponse{IsAlive: true}).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	client, err := manager.GetMATLABSessionClient(ctx, mockLogger, expectedSessionID)
@@ -80,7 +80,7 @@ func TestMATLABManager_GetMATLABSessionClient_PingFailure(t *testing.T) {
 		Return(entities.PingResponse{IsAlive: false}).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	client, err := manager.GetMATLABSessionClient(ctx, mockLogger, sessionID)
@@ -113,7 +113,7 @@ func TestMATLABManager_GetMATLABSessionClient_SessionStoreError(t *testing.T) {
 		Return(nil, expectedError).
 		Once()
 
-	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
 
 	// Act
 	client, err := manager.GetMATLABSessionClient(ctx, mockLogger, expectedSessionID)

@@ -24,11 +24,16 @@ type MATLABSessionClientFactory interface {
 	New(endpoint embeddedconnector.ConnectionDetails) (entities.MATLABSessionClient, error)
 }
 
+// DetachedMode controls whether MATLAB sessions survive server shutdown.
+// When true, StopSession() is a no-op, allowing the next server instance to reconnect.
+type DetachedMode bool
+
 type MATLABManager struct {
 	matlabServices        MATLABServices
 	sessionStore          MATLABSessionStore
 	clientFactory         MATLABSessionClientFactory
 	lastConnectionDetails *embeddedconnector.ConnectionDetails
+	detachedMode          bool
 }
 
 var _ entities.MATLABManager = (*MATLABManager)(nil)
@@ -37,11 +42,13 @@ func New(
 	matlabServices MATLABServices,
 	sessionStore MATLABSessionStore,
 	clientFactory MATLABSessionClientFactory,
+	detachedMode DetachedMode,
 ) *MATLABManager {
 	return &MATLABManager{
 		matlabServices: matlabServices,
 		sessionStore:   sessionStore,
 		clientFactory:  clientFactory,
+		detachedMode:   bool(detachedMode),
 	}
 }
 

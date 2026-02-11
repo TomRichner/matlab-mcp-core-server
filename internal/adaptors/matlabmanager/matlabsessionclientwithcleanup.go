@@ -11,6 +11,7 @@ import (
 type matlabSessionClientWithCleanup struct {
 	entities.MATLABSessionClient
 	sessionCleanup func() error
+	detached       bool
 }
 
 func newMATLABSessionClientWithCleanup(matlabSessionClient entities.MATLABSessionClient, sessionCleanup func() error) *matlabSessionClientWithCleanup {
@@ -21,6 +22,10 @@ func newMATLABSessionClientWithCleanup(matlabSessionClient entities.MATLABSessio
 }
 
 func (c *matlabSessionClientWithCleanup) StopSession(ctx context.Context, sessionLogger entities.Logger) error {
+	if c.detached {
+		return nil
+	}
+
 	_, err := c.Eval(ctx, sessionLogger, entities.EvalRequest{Code: "exit()"})
 	if err != nil {
 		return err
