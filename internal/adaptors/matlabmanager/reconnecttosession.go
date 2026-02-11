@@ -31,6 +31,10 @@ func (m *MATLABManager) ReconnectToSession(ctx context.Context, sessionLogger en
 	sessionClient := newMATLABSessionClientWithCleanup(client, func() error {
 		return nil
 	})
+	sessionClient.detached = m.detachedMode
+
+	// Store connection details so writeSessionFile can persist them
+	m.lastConnectionDetails = &connectionDetails
 
 	sessionID := m.sessionStore.Add(sessionClient)
 	sessionLogger.Info(fmt.Sprintf("Successfully reconnected to existing MATLAB session with session_id %d", sessionID))
