@@ -34,6 +34,7 @@ func (m *MATLABManager) StartMATLABSession(ctx context.Context, sessionLogger en
 		if err != nil {
 			return zeroValue, err
 		}
+		m.lastConnectionDetails = &embeddedConnectorEndpoint
 		client = newMATLABSessionClientWithCleanup(embeddedConnectorClient, sessionCleanup)
 	default:
 		return zeroValue, fmt.Errorf("unknown request type: %T", request)

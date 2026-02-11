@@ -168,6 +168,94 @@ func (_c *MockConfig_InitializeMATLABOnStartup_Call) RunAndReturn(run func() boo
 	return _c
 }
 
+// UseLastSession provides a mock function for the type MockConfig
+func (_mock *MockConfig) UseLastSession() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for UseLastSession")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockConfig_UseLastSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UseLastSession'
+type MockConfig_UseLastSession_Call struct {
+	*mock.Call
+}
+
+// UseLastSession is a helper method to define mock.On call
+func (_e *MockConfig_Expecter) UseLastSession() *MockConfig_UseLastSession_Call {
+	return &MockConfig_UseLastSession_Call{Call: _e.mock.On("UseLastSession")}
+}
+
+func (_c *MockConfig_UseLastSession_Call) Run(run func()) *MockConfig_UseLastSession_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockConfig_UseLastSession_Call) Return(b bool) *MockConfig_UseLastSession_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockConfig_UseLastSession_Call) RunAndReturn(run func() bool) *MockConfig_UseLastSession_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LastSessionFilePath provides a mock function for the type MockConfig
+func (_mock *MockConfig) LastSessionFilePath() string {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for LastSessionFilePath")
+	}
+
+	var r0 string
+	if returnFunc, ok := ret.Get(0).(func() string); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	return r0
+}
+
+// MockConfig_LastSessionFilePath_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LastSessionFilePath'
+type MockConfig_LastSessionFilePath_Call struct {
+	*mock.Call
+}
+
+// LastSessionFilePath is a helper method to define mock.On call
+func (_e *MockConfig_Expecter) LastSessionFilePath() *MockConfig_LastSessionFilePath_Call {
+	return &MockConfig_LastSessionFilePath_Call{Call: _e.mock.On("LastSessionFilePath")}
+}
+
+func (_c *MockConfig_LastSessionFilePath_Call) Run(run func()) *MockConfig_LastSessionFilePath_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockConfig_LastSessionFilePath_Call) Return(s string) *MockConfig_LastSessionFilePath_Call {
+	_c.Call.Return(s)
+	return _c
+}
+
+func (_c *MockConfig_LastSessionFilePath_Call) RunAndReturn(run func() string) *MockConfig_LastSessionFilePath_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LogLevel provides a mock function for the type MockConfig
 func (_mock *MockConfig) LogLevel() entities.LogLevel {
 	ret := _mock.Called()

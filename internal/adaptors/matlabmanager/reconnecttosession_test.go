@@ -1,0 +1,222 @@
+// Copyright 2026 The MathWorks, Inc.
+
+package matlabmanager_test
+
+import (
+	"testing"
+
+	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/matlabmanager"
+	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/matlabmanager/matlabsessionclient/embeddedconnector"
+	"github.com/matlab/matlab-mcp-core-server/internal/entities"
+	"github.com/matlab/matlab-mcp-core-server/internal/testutils"
+	mocks "github.com/matlab/matlab-mcp-core-server/mocks/adaptors/matlabmanager"
+	entitiesmocks "github.com/matlab/matlab-mcp-core-server/mocks/entities"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMATLABManager_ReconnectToSession_HappyPath(t *testing.T) {
+	// Arrange
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	mockSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+	defer mockSessionClient.AssertExpectations(t)
+
+	expectedSessionID := entities.SessionID(42)
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:           "localhost",
+		Port:           "31415",
+		APIKey:         "test-key",
+		CertificatePEM: []byte("test-cert"),
+	}
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(mockSessionClient, nil).
+		Once()
+
+	mockSessionClient.EXPECT().
+		Ping(mock.Anything, mockLogger.AsMockArg()).
+		Return(entities.PingResponse{IsAlive: true}).
+		Once()
+
+	mockSessionStore.EXPECT().
+		Add(mock.AnythingOfType("*matlabmanager.matlabSessionClientWithCleanup")).
+		Return(expectedSessionID).
+		Once()
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	ctx := t.Context()
+
+	// Act
+	sessionID, err := manager.ReconnectToSession(ctx, mockLogger, connectionDetails)
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, expectedSessionID, sessionID)
+}
+
+func TestMATLABManager_ReconnectToSession_ClientFactoryError(t *testing.T) {
+	// Arrange
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:   "localhost",
+		Port:   "31415",
+		APIKey: "test-key",
+	}
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(nil, assert.AnError).
+		Once()
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	ctx := t.Context()
+
+	// Act
+	sessionID, err := manager.ReconnectToSession(ctx, mockLogger, connectionDetails)
+
+	// Assert
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create client for reconnection")
+	assert.Empty(t, sessionID)
+}
+
+func TestMATLABManager_ReconnectToSession_PingFails(t *testing.T) {
+	// Arrange
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	mockSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+	defer mockSessionClient.AssertExpectations(t)
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:   "localhost",
+		Port:   "31415",
+		APIKey: "test-key",
+	}
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(mockSessionClient, nil).
+		Once()
+
+	mockSessionClient.EXPECT().
+		Ping(mock.Anything, mockLogger.AsMockArg()).
+		Return(entities.PingResponse{IsAlive: false}).
+		Once()
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	ctx := t.Context()
+
+	// Act
+	sessionID, err := manager.ReconnectToSession(ctx, mockLogger, connectionDetails)
+
+	// Assert
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not responding to ping")
+	assert.Empty(t, sessionID)
+}
+
+func TestMATLABManager_LastConnectionDetails_NilBeforeStart(t *testing.T) {
+	// Arrange
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+
+	// Act
+	details := manager.LastConnectionDetails()
+
+	// Assert
+	assert.Nil(t, details)
+}
+
+func TestMATLABManager_LastConnectionDetails_PopulatedAfterStart(t *testing.T) {
+	// Arrange
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	mockSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:           "localhost",
+		Port:           "9876",
+		APIKey:         "session-key",
+		CertificatePEM: []byte("cert-data"),
+	}
+	sessionCleanupFunc := func() error { return nil }
+
+	mockMATLABServices.EXPECT().
+		StartLocalMATLABSession(mock.Anything, mock.Anything).
+		Return(connectionDetails, sessionCleanupFunc, nil).
+		Once()
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(mockSessionClient, nil).
+		Once()
+
+	mockSessionStore.EXPECT().
+		Add(mock.AnythingOfType("*matlabmanager.matlabSessionClientWithCleanup")).
+		Return(entities.SessionID(1)).
+		Once()
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory)
+	ctx := t.Context()
+
+	startRequest := entities.LocalSessionDetails{
+		MATLABRoot: "some/root",
+	}
+
+	_, err := manager.StartMATLABSession(ctx, mockLogger, startRequest)
+	require.NoError(t, err)
+
+	// Act
+	details := manager.LastConnectionDetails()
+
+	// Assert
+	require.NotNil(t, details)
+	assert.Equal(t, "localhost", details.Host)
+	assert.Equal(t, "9876", details.Port)
+	assert.Equal(t, "session-key", details.APIKey)
+	assert.Equal(t, []byte("cert-data"), details.CertificatePEM)
+}

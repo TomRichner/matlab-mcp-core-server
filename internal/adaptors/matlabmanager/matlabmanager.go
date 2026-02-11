@@ -25,9 +25,10 @@ type MATLABSessionClientFactory interface {
 }
 
 type MATLABManager struct {
-	matlabServices MATLABServices
-	sessionStore   MATLABSessionStore
-	clientFactory  MATLABSessionClientFactory
+	matlabServices        MATLABServices
+	sessionStore          MATLABSessionStore
+	clientFactory         MATLABSessionClientFactory
+	lastConnectionDetails *embeddedconnector.ConnectionDetails
 }
 
 var _ entities.MATLABManager = (*MATLABManager)(nil)
@@ -42,4 +43,10 @@ func New(
 		sessionStore:   sessionStore,
 		clientFactory:  clientFactory,
 	}
+}
+
+// LastConnectionDetails returns the connection details from the most recent StartMATLABSession call.
+// Returns nil if no session has been started.
+func (m *MATLABManager) LastConnectionDetails() *embeddedconnector.ConnectionDetails {
+	return m.lastConnectionDetails
 }

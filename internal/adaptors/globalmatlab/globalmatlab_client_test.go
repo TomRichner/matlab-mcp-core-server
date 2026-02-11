@@ -89,6 +89,7 @@ func TestGlobalMATLAB_Client_HappyPath(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	require.NotNil(t, globalMATLABSession)
@@ -170,6 +171,7 @@ func TestGlobalMATLAB_Client_StartingDirectorySet(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	require.NotNil(t, globalMATLABSession)
@@ -251,6 +253,7 @@ func TestGlobalMATLAB_Client_ShowMATLABDesktopFalse(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	require.NotNil(t, globalMATLABSession)
@@ -292,6 +295,7 @@ func TestGlobalMATLAB_Client_SelectMATLABRootError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -369,6 +373,7 @@ func TestGlobalMATLAB_Client_MATLABStartingDirSelectionError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	require.NotNil(t, globalMATLABSession)
@@ -443,6 +448,7 @@ func TestGlobalMATLAB_Client_StartMATLABSessionError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -547,6 +553,7 @@ func TestGlobalMATLAB_Client_GetMATLABSessionClientError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -652,6 +659,7 @@ func TestGlobalMATLAB_Client_GetMATLABSessionClientError_RetrySucceeds(t *testin
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -686,6 +694,7 @@ func TestGlobalMATLAB_Client_ReturnsInitializeCachedErrorOnSubsequentClientCalls
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	mockMATLABRootSelector.EXPECT().
@@ -767,6 +776,7 @@ func TestGlobalMATLAB_Client_ReturnsMATLABStartupCachedErrorOnSubsequentClientCa
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -870,6 +880,7 @@ func TestGlobalMATLAB_Client_ConcurrentCallsWaitForCompletion(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -1004,6 +1015,7 @@ func TestGlobalMATLAB_Client_RestartOnGetClientFailure(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -1118,6 +1130,7 @@ func TestGlobalMATLAB_Client_DoesNotErrorIfStopSessionError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -1227,6 +1240,7 @@ func TestGlobalMATLAB_Client_RestartFailure_OnExistingSession(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act
@@ -1282,6 +1296,7 @@ func TestGlobalMATLAB_Client_ConfigError(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Act

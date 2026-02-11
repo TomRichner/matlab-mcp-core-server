@@ -232,6 +232,7 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 
 		// Global MATLAB
 		globalmatlab.New,
+		globalmatlab.NewSessionPersistenceConfig,
 		wire.Bind(new(globalmatlab.MATLABManager), new(*matlabmanager.MATLABManager)),
 		wire.Bind(new(globalmatlab.MATLABRootSelector), new(*matlabrootselector.MATLABRootSelector)),
 		wire.Bind(new(globalmatlab.MATLABStartingDirSelector), new(*matlabstartingdirselector.MATLABStartingDirSelector)),

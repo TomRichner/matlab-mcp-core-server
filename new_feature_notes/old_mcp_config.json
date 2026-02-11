@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "matlab": {
+            "type": "stdio",
+            "command": "/Users/richner.thomas/Desktop/MCP_servers/matlab-mcp-core-server/matlab-mcp-core-server",
+            "args": [
+                "--disable-telemetry=true",
+                "--matlab-root=/Applications/MATLAB_R2025b.app",
+                "--initial-working-folder=/Users/richner.thomas/Desktop/local_code/ConnectivityAdaptation"
+            ],
+            "disabledTools": [],
+            "disabled": true
+        }
+    }
+}

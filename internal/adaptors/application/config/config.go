@@ -29,6 +29,8 @@ type Config interface {
 	BaseDir() string
 	ServerInstanceID() string
 	UseSingleMATLABSession() bool
+	UseLastSession() bool
+	LastSessionFilePath() string
 	InitializeMATLABOnStartup() bool
 	RecordToLogger(logger entities.Logger)
 	LogLevel() entities.LogLevel
@@ -147,6 +149,14 @@ func (c *config) InitializeMATLABOnStartup() bool {
 	return c.specifiedArguments.InitializeMATLABOnStartup
 }
 
+func (c *config) UseLastSession() bool {
+	return c.specifiedArguments.UseLastSession
+}
+
+func (c *config) LastSessionFilePath() string {
+	return c.specifiedArguments.LastSessionFilePath
+}
+
 func (c *config) ShouldShowMATLABDesktop() bool {
 	switch c.specifiedArguments.DisplayMode {
 	case entities.DisplayModeDesktop:
@@ -162,6 +172,8 @@ func (c *config) RecordToLogger(logger entities.Logger) {
 	logger.
 		With(flags.DisableTelemetry, c.specifiedArguments.DisableTelemetry).
 		With(flags.UseSingleMATLABSession, c.specifiedArguments.UseSingleMATLABSession).
+		With(flags.UseLastSession, c.specifiedArguments.UseLastSession).
+		With(flags.LastSessionFilePath, c.specifiedArguments.LastSessionFilePath).
 		With(flags.LogLevel, c.specifiedArguments.LogLevel).
 		With(flags.PreferredLocalMATLABRoot, c.specifiedArguments.PreferredLocalMATLABRoot).
 		With(flags.PreferredMATLABStartingDirectory, c.specifiedArguments.PreferredMATLABStartingDirectory).

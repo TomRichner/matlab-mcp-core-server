@@ -34,6 +34,12 @@ const (
 	UseSingleMATLABSession             = "use-single-matlab-session"
 	UseSingleMATLABSessionDefaultValue = true
 
+	UseLastSession             = "use-last-session"
+	UseLastSessionDefaultValue = false
+
+	LastSessionFilePath             = "last-session-file-path"
+	LastSessionFilePathDefaultValue = ""
+
 	WatchdogMode             = "watchdog"
 	WatchdogModeDefaultValue = false
 

@@ -30,6 +30,7 @@ func TestNew_HappyPath(t *testing.T) {
 		mockMATLABRootSelector,
 		mockMATLABStartingDirSelector,
 		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{},
 	)
 
 	// Assert

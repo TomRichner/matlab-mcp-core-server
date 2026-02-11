@@ -22,6 +22,8 @@ type SpecifiedArguments struct {
 	HelpMode                         bool
 	DisableTelemetry                 bool
 	UseSingleMATLABSession           bool
+	UseLastSession                   bool
+	LastSessionFilePath              string
 	LogLevel                         entities.LogLevel
 	PreferredLocalMATLABRoot         string
 	PreferredMATLABStartingDirectory string
@@ -120,6 +122,16 @@ func (p *Parser) Parse(args []string) (SpecifiedArguments, messages.Error) {
 		initializeMATLABOnStartup = false
 	}
 
+	useLastSession, err := p.flagSet.GetBool(flags.UseLastSession)
+	if err != nil {
+		return SpecifiedArguments{}, p.convertToUserFacingError(err)
+	}
+
+	lastSessionFilePath, err := p.flagSet.GetString(flags.LastSessionFilePath)
+	if err != nil {
+		return SpecifiedArguments{}, p.convertToUserFacingError(err)
+	}
+
 	displayMode, err := p.flagSet.GetString(flags.DisplayMode)
 	if err != nil {
 		return SpecifiedArguments{}, p.convertToUserFacingError(err)
@@ -137,6 +149,8 @@ func (p *Parser) Parse(args []string) (SpecifiedArguments, messages.Error) {
 		HelpMode:                         helpMode,
 		DisableTelemetry:                 disableTelemetry,
 		UseSingleMATLABSession:           useSingleMATLABSession,
+		UseLastSession:                   useLastSession,
+		LastSessionFilePath:              lastSessionFilePath,
 		LogLevel:                         entities.LogLevel(logLevel),
 		PreferredLocalMATLABRoot:         preferredLocalMATLABRoot,
 		PreferredMATLABStartingDirectory: preferredMATLABStartingDirectory,
@@ -206,6 +220,15 @@ func setupFlags(messageCatalog MessageCatalog, flagSet *pflag.FlagSet) {
 
 	setHiddenStringFlag(flagSet, flags.ServerInstanceID, flags.ServerInstanceIDDefaultValue,
 		messageCatalog.Get(messages.CLIMessages_InternalUseDescription))
+
+	// Public flags for session persistence
+	flagSet.Bool(flags.UseLastSession, flags.UseLastSessionDefaultValue,
+		messageCatalog.Get(messages.CLIMessages_UseLastSessionDescription),
+	)
+
+	flagSet.String(flags.LastSessionFilePath, flags.LastSessionFilePathDefaultValue,
+		messageCatalog.Get(messages.CLIMessages_LastSessionFilePathDescription),
+	)
 }
 
 func (p *Parser) convertToUserFacingError(err error) messages.Error {
