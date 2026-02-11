@@ -113,6 +113,124 @@ func (_c *MockMATLABManager_GetMATLABSessionClient_Call) RunAndReturn(run func(c
 	return _c
 }
 
+// LastConnectionDetails provides a mock function for the type MockMATLABManager
+func (_mock *MockMATLABManager) LastConnectionDetails() *embeddedconnector.ConnectionDetails {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for LastConnectionDetails")
+	}
+
+	var r0 *embeddedconnector.ConnectionDetails
+	if returnFunc, ok := ret.Get(0).(func() *embeddedconnector.ConnectionDetails); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*embeddedconnector.ConnectionDetails)
+		}
+	}
+	return r0
+}
+
+// MockMATLABManager_LastConnectionDetails_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LastConnectionDetails'
+type MockMATLABManager_LastConnectionDetails_Call struct {
+	*mock.Call
+}
+
+// LastConnectionDetails is a helper method to define mock.On call
+func (_e *MockMATLABManager_Expecter) LastConnectionDetails() *MockMATLABManager_LastConnectionDetails_Call {
+	return &MockMATLABManager_LastConnectionDetails_Call{Call: _e.mock.On("LastConnectionDetails")}
+}
+
+func (_c *MockMATLABManager_LastConnectionDetails_Call) Run(run func()) *MockMATLABManager_LastConnectionDetails_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockMATLABManager_LastConnectionDetails_Call) Return(connectionDetails *embeddedconnector.ConnectionDetails) *MockMATLABManager_LastConnectionDetails_Call {
+	_c.Call.Return(connectionDetails)
+	return _c
+}
+
+func (_c *MockMATLABManager_LastConnectionDetails_Call) RunAndReturn(run func() *embeddedconnector.ConnectionDetails) *MockMATLABManager_LastConnectionDetails_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReconnectToSession provides a mock function for the type MockMATLABManager
+func (_mock *MockMATLABManager) ReconnectToSession(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails) (entities.SessionID, error) {
+	ret := _mock.Called(ctx, sessionLogger, connectionDetails)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReconnectToSession")
+	}
+
+	var r0 entities.SessionID
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) (entities.SessionID, error)); ok {
+		return returnFunc(ctx, sessionLogger, connectionDetails)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) entities.SessionID); ok {
+		r0 = returnFunc(ctx, sessionLogger, connectionDetails)
+	} else {
+		r0 = ret.Get(0).(entities.SessionID)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) error); ok {
+		r1 = returnFunc(ctx, sessionLogger, connectionDetails)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMATLABManager_ReconnectToSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReconnectToSession'
+type MockMATLABManager_ReconnectToSession_Call struct {
+	*mock.Call
+}
+
+// ReconnectToSession is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sessionLogger entities.Logger
+//   - connectionDetails embeddedconnector.ConnectionDetails
+func (_e *MockMATLABManager_Expecter) ReconnectToSession(ctx interface{}, sessionLogger interface{}, connectionDetails interface{}) *MockMATLABManager_ReconnectToSession_Call {
+	return &MockMATLABManager_ReconnectToSession_Call{Call: _e.mock.On("ReconnectToSession", ctx, sessionLogger, connectionDetails)}
+}
+
+func (_c *MockMATLABManager_ReconnectToSession_Call) Run(run func(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails)) *MockMATLABManager_ReconnectToSession_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entities.Logger
+		if args[1] != nil {
+			arg1 = args[1].(entities.Logger)
+		}
+		var arg2 embeddedconnector.ConnectionDetails
+		if args[2] != nil {
+			arg2 = args[2].(embeddedconnector.ConnectionDetails)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMATLABManager_ReconnectToSession_Call) Return(sessionID entities.SessionID, err error) *MockMATLABManager_ReconnectToSession_Call {
+	_c.Call.Return(sessionID, err)
+	return _c
+}
+
+func (_c *MockMATLABManager_ReconnectToSession_Call) RunAndReturn(run func(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails) (entities.SessionID, error)) *MockMATLABManager_ReconnectToSession_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StartMATLABSession provides a mock function for the type MockMATLABManager
 func (_mock *MockMATLABManager) StartMATLABSession(ctx context.Context, sessionLogger entities.Logger, startRequest entities.SessionDetails) (entities.SessionID, error) {
 	ret := _mock.Called(ctx, sessionLogger, startRequest)
@@ -244,124 +362,6 @@ func (_c *MockMATLABManager_StopMATLABSession_Call) Return(err error) *MockMATLA
 }
 
 func (_c *MockMATLABManager_StopMATLABSession_Call) RunAndReturn(run func(ctx context.Context, sessionLogger entities.Logger, sessionID entities.SessionID) error) *MockMATLABManager_StopMATLABSession_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ReconnectToSession provides a mock function for the type MockMATLABManager
-func (_mock *MockMATLABManager) ReconnectToSession(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails) (entities.SessionID, error) {
-	ret := _mock.Called(ctx, sessionLogger, connectionDetails)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ReconnectToSession")
-	}
-
-	var r0 entities.SessionID
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) (entities.SessionID, error)); ok {
-		return returnFunc(ctx, sessionLogger, connectionDetails)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) entities.SessionID); ok {
-		r0 = returnFunc(ctx, sessionLogger, connectionDetails)
-	} else {
-		r0 = ret.Get(0).(entities.SessionID)
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Logger, embeddedconnector.ConnectionDetails) error); ok {
-		r1 = returnFunc(ctx, sessionLogger, connectionDetails)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockMATLABManager_ReconnectToSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReconnectToSession'
-type MockMATLABManager_ReconnectToSession_Call struct {
-	*mock.Call
-}
-
-// ReconnectToSession is a helper method to define mock.On call
-//   - ctx context.Context
-//   - sessionLogger entities.Logger
-//   - connectionDetails embeddedconnector.ConnectionDetails
-func (_e *MockMATLABManager_Expecter) ReconnectToSession(ctx interface{}, sessionLogger interface{}, connectionDetails interface{}) *MockMATLABManager_ReconnectToSession_Call {
-	return &MockMATLABManager_ReconnectToSession_Call{Call: _e.mock.On("ReconnectToSession", ctx, sessionLogger, connectionDetails)}
-}
-
-func (_c *MockMATLABManager_ReconnectToSession_Call) Run(run func(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails)) *MockMATLABManager_ReconnectToSession_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entities.Logger
-		if args[1] != nil {
-			arg1 = args[1].(entities.Logger)
-		}
-		var arg2 embeddedconnector.ConnectionDetails
-		if args[2] != nil {
-			arg2 = args[2].(embeddedconnector.ConnectionDetails)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockMATLABManager_ReconnectToSession_Call) Return(sessionID entities.SessionID, err error) *MockMATLABManager_ReconnectToSession_Call {
-	_c.Call.Return(sessionID, err)
-	return _c
-}
-
-func (_c *MockMATLABManager_ReconnectToSession_Call) RunAndReturn(run func(ctx context.Context, sessionLogger entities.Logger, connectionDetails embeddedconnector.ConnectionDetails) (entities.SessionID, error)) *MockMATLABManager_ReconnectToSession_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// LastConnectionDetails provides a mock function for the type MockMATLABManager
-func (_mock *MockMATLABManager) LastConnectionDetails() *embeddedconnector.ConnectionDetails {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for LastConnectionDetails")
-	}
-
-	var r0 *embeddedconnector.ConnectionDetails
-	if returnFunc, ok := ret.Get(0).(func() *embeddedconnector.ConnectionDetails); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*embeddedconnector.ConnectionDetails)
-		}
-	}
-	return r0
-}
-
-// MockMATLABManager_LastConnectionDetails_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LastConnectionDetails'
-type MockMATLABManager_LastConnectionDetails_Call struct {
-	*mock.Call
-}
-
-// LastConnectionDetails is a helper method to define mock.On call
-func (_e *MockMATLABManager_Expecter) LastConnectionDetails() *MockMATLABManager_LastConnectionDetails_Call {
-	return &MockMATLABManager_LastConnectionDetails_Call{Call: _e.mock.On("LastConnectionDetails")}
-}
-
-func (_c *MockMATLABManager_LastConnectionDetails_Call) Run(run func()) *MockMATLABManager_LastConnectionDetails_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockMATLABManager_LastConnectionDetails_Call) Return(connectionDetails *embeddedconnector.ConnectionDetails) *MockMATLABManager_LastConnectionDetails_Call {
-	_c.Call.Return(connectionDetails)
-	return _c
-}
-
-func (_c *MockMATLABManager_LastConnectionDetails_Call) RunAndReturn(run func() *embeddedconnector.ConnectionDetails) *MockMATLABManager_LastConnectionDetails_Call {
 	_c.Call.Return(run)
 	return _c
 }
