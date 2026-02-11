@@ -102,6 +102,7 @@ func (m *Starter) StartLocalMATLABSession(logger entities.Logger, request dataty
 			Port:           securePort,
 			APIKey:         uniqueAPIKey,
 			CertificatePEM: certificatePEM,
+			MatlabPID:      processID,
 		}, func() error {
 			processCleanup()
 			return sessionDir.Cleanup()

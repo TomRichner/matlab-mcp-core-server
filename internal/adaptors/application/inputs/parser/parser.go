@@ -23,6 +23,7 @@ type SpecifiedArguments struct {
 	DisableTelemetry                 bool
 	UseSingleMATLABSession           bool
 	UseLastSession                   bool
+	TryToAdopt                       bool
 	LastSessionFilePath              string
 	LogLevel                         entities.LogLevel
 	PreferredLocalMATLABRoot         string
@@ -132,6 +133,11 @@ func (p *Parser) Parse(args []string) (SpecifiedArguments, messages.Error) {
 		return SpecifiedArguments{}, p.convertToUserFacingError(err)
 	}
 
+	tryToAdopt, err := p.flagSet.GetBool(flags.TryToAdopt)
+	if err != nil {
+		return SpecifiedArguments{}, p.convertToUserFacingError(err)
+	}
+
 	displayMode, err := p.flagSet.GetString(flags.DisplayMode)
 	if err != nil {
 		return SpecifiedArguments{}, p.convertToUserFacingError(err)
@@ -150,6 +156,7 @@ func (p *Parser) Parse(args []string) (SpecifiedArguments, messages.Error) {
 		DisableTelemetry:                 disableTelemetry,
 		UseSingleMATLABSession:           useSingleMATLABSession,
 		UseLastSession:                   useLastSession,
+		TryToAdopt:                       tryToAdopt,
 		LastSessionFilePath:              lastSessionFilePath,
 		LogLevel:                         entities.LogLevel(logLevel),
 		PreferredLocalMATLABRoot:         preferredLocalMATLABRoot,
@@ -228,6 +235,10 @@ func setupFlags(messageCatalog MessageCatalog, flagSet *pflag.FlagSet) {
 
 	flagSet.String(flags.LastSessionFilePath, flags.LastSessionFilePathDefaultValue,
 		messageCatalog.Get(messages.CLIMessages_LastSessionFilePathDescription),
+	)
+
+	flagSet.Bool(flags.TryToAdopt, flags.TryToAdoptDefaultValue,
+		messageCatalog.Get(messages.CLIMessages_TryToAdoptDescription),
 	)
 }
 

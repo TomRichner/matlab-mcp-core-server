@@ -30,6 +30,7 @@ type Config interface {
 	ServerInstanceID() string
 	UseSingleMATLABSession() bool
 	UseLastSession() bool
+	TryToAdopt() bool
 	LastSessionFilePath() string
 	InitializeMATLABOnStartup() bool
 	RecordToLogger(logger entities.Logger)
@@ -157,6 +158,10 @@ func (c *config) LastSessionFilePath() string {
 	return c.specifiedArguments.LastSessionFilePath
 }
 
+func (c *config) TryToAdopt() bool {
+	return c.specifiedArguments.TryToAdopt
+}
+
 func (c *config) ShouldShowMATLABDesktop() bool {
 	switch c.specifiedArguments.DisplayMode {
 	case entities.DisplayModeDesktop:
@@ -173,6 +178,7 @@ func (c *config) RecordToLogger(logger entities.Logger) {
 		With(flags.DisableTelemetry, c.specifiedArguments.DisableTelemetry).
 		With(flags.UseSingleMATLABSession, c.specifiedArguments.UseSingleMATLABSession).
 		With(flags.UseLastSession, c.specifiedArguments.UseLastSession).
+		With(flags.TryToAdopt, c.specifiedArguments.TryToAdopt).
 		With(flags.LastSessionFilePath, c.specifiedArguments.LastSessionFilePath).
 		With(flags.LogLevel, c.specifiedArguments.LogLevel).
 		With(flags.PreferredLocalMATLABRoot, c.specifiedArguments.PreferredLocalMATLABRoot).

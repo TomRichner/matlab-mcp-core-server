@@ -40,6 +40,9 @@ const (
 	LastSessionFilePath             = "last-session-file-path"
 	LastSessionFilePathDefaultValue = ""
 
+	TryToAdopt             = "try-to-adopt"
+	TryToAdoptDefaultValue = false
+
 	WatchdogMode             = "watchdog"
 	WatchdogModeDefaultValue = false
 

@@ -28,6 +28,7 @@ type ConnectionDetails struct {
 	Port           string
 	APIKey         string
 	CertificatePEM []byte
+	MatlabPID      int
 }
 
 type Client struct {

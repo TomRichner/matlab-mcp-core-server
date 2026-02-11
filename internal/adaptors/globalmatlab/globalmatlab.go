@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/application/config"
@@ -40,6 +41,7 @@ type MATLABStartingDirSelector interface {
 type SessionPersistenceConfig struct {
 	UseLastSession bool
 	SessionFileDir string
+	TryToAdopt     bool
 }
 
 // NewSessionPersistenceConfig creates a SessionPersistenceConfig from the application config.
@@ -62,6 +64,7 @@ func NewSessionPersistenceConfig(configFactory ConfigFactory) SessionPersistence
 	return SessionPersistenceConfig{
 		UseLastSession: true,
 		SessionFileDir: dir,
+		TryToAdopt:     cfg.TryToAdopt(),
 	}
 }
 
@@ -83,6 +86,7 @@ type GlobalMATLAB struct {
 	// Session persistence
 	useLastSession bool
 	sessionFileDir string
+	tryToAdopt     bool
 }
 
 func New(
@@ -103,6 +107,7 @@ func New(
 
 		useLastSession: sessionPersistence.UseLastSession,
 		sessionFileDir: sessionPersistence.SessionFileDir,
+		tryToAdopt:     sessionPersistence.TryToAdopt,
 	}
 }
 
@@ -129,7 +134,7 @@ func (g *GlobalMATLAB) getOrCreateClient(ctx context.Context, logger entities.Lo
 
 	// Try to reconnect from session file if enabled and no current session
 	if g.sessionID == sessionIDZeroValue && g.useLastSession {
-		if g.tryReconnectFromFile(ctx, logger) {
+		if g.tryReconnectFromSessions(ctx, logger) {
 			logger.Info("Reconnected to existing MATLAB session from session file")
 		}
 	}
@@ -203,39 +208,86 @@ func (g *GlobalMATLAB) initializeStartupConfig(ctx context.Context, logger entit
 	return nil
 }
 
-// tryReconnectFromFile attempts to read saved session details and reconnect to an existing MATLAB.
+// tryReconnectFromSessions scans PID-namespaced session files and attempts reconnection.
+// Priority: 1) Own session (same parent PID), 2) Orphan adoption (if --try-to-adopt).
+// Also garbage-collects stale session files where both PIDs are dead.
 // Returns true if reconnection was successful.
-func (g *GlobalMATLAB) tryReconnectFromFile(ctx context.Context, logger entities.Logger) bool {
+func (g *GlobalMATLAB) tryReconnectFromSessions(ctx context.Context, logger entities.Logger) bool {
 	if g.sessionFileDir == "" {
 		logger.Debug("No session file directory configured, skipping reconnection attempt")
 		return false
 	}
 
-	info, err := sessionfile.Read(g.sessionFileDir)
+	sessions, err := sessionfile.ScanSessions(g.sessionFileDir)
 	if err != nil {
-		logger.WithError(err).Debug("Could not read session file, will start new session")
+		logger.WithError(err).Warn("Failed to scan session files")
 		return false
 	}
 
-	// Decode the base64-encoded certificate PEM
-	certPEM, err := base64.StdEncoding.DecodeString(info.CertPEM)
+	myPPID := os.Getppid()
+	var orphanCandidates []sessionfile.ScannedSession
+
+	for _, s := range sessions {
+		if s.ParentPID == myPPID {
+			// This is our own session from a previous server instance
+			if sessionfile.IsProcessAlive(s.MatlabPID) {
+				if g.tryReconnectToSession(ctx, logger, s) {
+					return true
+				}
+			}
+			// MATLAB dead or reconnect failed — clean up
+			logger.Debug(fmt.Sprintf("Deleting stale session file for own session (MATLAB PID %d)", s.MatlabPID))
+			_ = sessionfile.DeleteFile(s.FilePath)
+		} else if !sessionfile.IsProcessAlive(s.ParentPID) {
+			// Parent VS Code is dead
+			if sessionfile.IsProcessAlive(s.MatlabPID) {
+				// Orphaned MATLAB — candidate for adoption
+				orphanCandidates = append(orphanCandidates, s)
+			} else {
+				// Both dead — garbage collect
+				logger.Debug(fmt.Sprintf("Garbage-collecting stale session file %s", s.FilePath))
+				_ = sessionfile.DeleteFile(s.FilePath)
+			}
+		}
+		// else: parent alive and not ours — another VS Code window owns it, skip
+	}
+
+	// Phase 2: adopt orphan if --try-to-adopt
+	if g.tryToAdopt && len(orphanCandidates) > 0 {
+		candidate := orphanCandidates[0]
+		logger.Info(fmt.Sprintf("Attempting to adopt orphaned MATLAB session (MATLAB PID %d, former parent PID %d)", candidate.MatlabPID, candidate.ParentPID))
+		if g.tryReconnectToSession(ctx, logger, candidate) {
+			// Adoption successful — delete old file and write new one with our PPID
+			_ = sessionfile.DeleteFile(candidate.FilePath)
+			g.writeSessionFile(logger)
+			return true
+		}
+		// Adoption failed — clean up
+		_ = sessionfile.DeleteFile(candidate.FilePath)
+	}
+
+	return false
+}
+
+// tryReconnectToSession attempts to reconnect to a specific scanned session.
+func (g *GlobalMATLAB) tryReconnectToSession(ctx context.Context, logger entities.Logger, s sessionfile.ScannedSession) bool {
+	certPEM, err := base64.StdEncoding.DecodeString(s.Info.CertPEM)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to decode certificate from session file, will start new session")
-		_ = sessionfile.Delete(g.sessionFileDir)
+		logger.WithError(err).Warn("Failed to decode certificate from session file")
 		return false
 	}
 
 	connectionDetails := embeddedconnector.ConnectionDetails{
 		Host:           "localhost",
-		Port:           info.Port,
-		APIKey:         info.APIKey,
+		Port:           s.Info.Port,
+		APIKey:         s.Info.APIKey,
 		CertificatePEM: certPEM,
+		MatlabPID:      s.MatlabPID,
 	}
 
 	sessionID, err := g.matlabManager.ReconnectToSession(ctx, logger, connectionDetails)
 	if err != nil {
-		logger.WithError(err).Info("Failed to reconnect to existing MATLAB session, will start new session")
-		_ = sessionfile.Delete(g.sessionFileDir)
+		logger.WithError(err).Info("Failed to reconnect to existing MATLAB session")
 		return false
 	}
 
@@ -256,16 +308,19 @@ func (g *GlobalMATLAB) writeSessionFile(logger entities.Logger) {
 		return
 	}
 
+	parentPID := os.Getppid()
+	matlabPID := details.MatlabPID
+
 	info := sessionfile.SessionInfo{
 		APIKey:  details.APIKey,
 		Port:    details.Port,
 		CertPEM: base64.StdEncoding.EncodeToString(details.CertificatePEM),
 	}
 
-	if err := sessionfile.Write(g.sessionFileDir, info); err != nil {
+	if err := sessionfile.Write(g.sessionFileDir, info, parentPID, matlabPID); err != nil {
 		logger.WithError(err).Warn("Failed to write session file")
 		return
 	}
 
-	logger.Info(fmt.Sprintf("Session details persisted to session file in %s", g.sessionFileDir))
+	logger.Info(fmt.Sprintf("Session details persisted to session file in %s (parent PID %d, MATLAB PID %d)", g.sessionFileDir, parentPID, matlabPID))
 }
