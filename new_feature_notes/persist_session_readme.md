@@ -174,14 +174,77 @@ make mockery   # Regenerates all files in mocks/ and tests/mocks/
 
 > **Note:** `make mockery` deletes `mocks/` and `tests/mocks/` before regenerating. If mockery fails mid-run, restore from git: `git checkout HEAD -- mocks/ tests/mocks/`
 
-## Known Limitations & Future Work
+## Known Limitations (v1)
 
-1. **Session file not deleted on shutdown** — If MATLAB crashes independently, the stale session file causes a failed reconnect attempt on next startup (falls back gracefully but wastes a few seconds).
+1. **Multi-instance conflict** — Two VS Code windows using the same session directory will overwrite each other's session file.
 
-2. **Multi-instance safety** — Two VS Code windows using the same default session file directory will overwrite each other's session file. Consider namespacing by workspace or PID.
+2. **Orphaned MATLAB on VS Code restart** — Detached mode means MATLAB survives shutdown. If VS Code fully restarts (new PID), the server can't find the old session file and launches a new MATLAB, leaving the old one orphaned.
 
-3. **No session file locking** — Concurrent read/write is theoretically possible but unlikely in practice since the MCP server is single-instance per VS Code window.
+3. **Certificate rotation** — If MATLAB's self-signed TLS certificate changes, the saved cert will be invalid. Reconnect will fail and fall back to a new session.
 
-4. **Certificate rotation** — If MATLAB's self-signed TLS certificate changes, the saved cert will be invalid. Reconnect will fail and fall back to a new session.
+## v2 Roadmap: Multi-Session with PID Namespacing
 
-5. **Orphaned MATLAB on crash** — Detached mode means MATLAB survives shutdown, but if the server crashes without writing a session file, MATLAB will remain orphaned until manually killed.
+### Problem
+v1 uses a single `last_matlab_session.json` file. Multiple VS Code windows overwrite each other, and orphaned MATLABs accumulate.
+
+### Design
+
+**New flag:** `--try-to-adopt` (alongside `--use-last-session`)
+**Rename:** `--last-session-file-path` → `--last-session-dir` (already takes a directory)
+
+**File naming:** `session_vsc<ppid>_ml<mpid>.json`
+
+```
+~/.cache/matlab-mcp/sessions/
+├── session_vsc12345_ml67890.json    ← VS Code 12345 owns MATLAB 67890
+├── session_vsc11111_ml22222.json    ← VS Code 11111 (dead), MATLAB 22222 (alive) → adoptable
+└── session_vsc33333_ml44444.json    ← both dead → garbage collect
+```
+
+### Startup Flow
+
+```
+Server starts (my PPID = 12345)
+
+1. Scan session_vsc*_ml*.json files in session dir
+2. For each, extract vscPID and mlPID from filename:
+
+   ├─ vscPID == my PPID?
+   │     ├─ MATLAB alive → reconnect (my session from last refresh) ✅
+   │     └─ MATLAB dead → delete file, continue
+   │
+   ├─ vscPID alive?
+   │     └─ Yes → skip (another VS Code window owns it)
+   │
+   └─ vscPID dead?
+         ├─ MATLAB alive → orphaned, candidate for adoption
+         └─ MATLAB dead → delete stale file (garbage collect)
+
+3. If no reconnect happened:
+   ├─ --try-to-adopt + orphan candidates exist?
+   │     → adopt first one (reconnect + rewrite file with my vscPID)
+   └─ No candidates? → launch fresh MATLAB, write new session file
+```
+
+### PID Aliveness Check
+
+```go
+func isProcessAlive(pid int) bool {
+    process, err := os.FindProcess(pid)
+    if err != nil {
+        return false
+    }
+    // Signal 0 doesn't kill — just checks if process exists
+    err = process.Signal(syscall.Signal(0))
+    return err == nil
+}
+```
+
+### Key Properties
+
+- **Zero user configuration** — no per-project paths needed
+- **Multi-instance safe** — each VS Code window gets its own session file
+- **Self-cleaning** — dead JSON files are garbage collected on startup
+- **Never kills MATLAB** — orphaned MATLABs stay alive; user manages them
+- **Adoption is opt-in** — requires `--try-to-adopt` flag
+- **Backward compatible** — old `last_matlab_session.json` treated as legacy v1 file
