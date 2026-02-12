@@ -119,9 +119,8 @@ func (o *Orchestrator) StartAndWaitForCompletion(ctx context.Context) error {
 	}
 	directory.RecordToLogger(logger)
 
-	err := o.watchdogClient.Start()
-	if err != nil {
-		return err
+	if err := o.watchdogClient.Start(); err != nil {
+		logger.WithError(err).Warn("Watchdog startup failed, continuing without watchdog")
 	}
 
 	serverErrC := make(chan error, 1)

@@ -257,8 +257,11 @@ func TestOrchestrator_StartAndWaitForCompletion_DirectoryError(t *testing.T) {
 	require.ErrorIs(t, err, expectedError, "StartAndWaitForCompletion should return the error from Directory")
 }
 
-func TestOrchestrator_StartAndWaitForCompletion_WatchdogStartError(t *testing.T) {
-	// Arrange
+func TestOrchestrator_StartAndWaitForCompletion_WatchdogStartError_ContinuesRunning(t *testing.T) {
+	// Watchdog Start() failure should NOT be fatal — the server should
+	// log a warning and continue running normally. This prevents
+	// intermittent startup failures when the watchdog socket times out.
+
 	mockLifecycleSignaler := &orchestratormocks.MockLifecycleSignaler{}
 	defer mockLifecycleSignaler.AssertExpectations(t)
 
@@ -291,7 +294,10 @@ func TestOrchestrator_StartAndWaitForCompletion_WatchdogStartError(t *testing.T)
 
 	mockLogger := testutils.NewInspectableLogger()
 	ctx := t.Context()
-	expectedError := messages.AnError
+	interruptC := getInterruptChannel()
+	serverStarted := make(chan struct{})
+	stopServer := make(chan struct{})
+	defer close(stopServer)
 
 	mockConfigFactory.EXPECT().
 		Config().
@@ -318,9 +324,40 @@ func TestOrchestrator_StartAndWaitForCompletion_WatchdogStartError(t *testing.T)
 		Return().
 		Once()
 
+	// Watchdog fails to start
 	mockWatchdogClient.EXPECT().
 		Start().
-		Return(expectedError).
+		Return(assert.AnError).
+		Once()
+
+	// Server should still run
+	mockServer.EXPECT().
+		Run().
+		RunAndReturn(func() error {
+			close(serverStarted)
+			<-stopServer
+			return nil
+		}).
+		Once()
+
+	mockConfig.EXPECT().
+		UseSingleMATLABSession().
+		Return(true).
+		Once()
+
+	mockConfig.EXPECT().
+		InitializeMATLABOnStartup().
+		Return(true).
+		Once()
+
+	mockGlobalMATLABManager.EXPECT().
+		Client(ctx, mockLogger.AsMockArg()).
+		Return(nil, nil).
+		Once()
+
+	mockSignalLayer.EXPECT().
+		InterruptSignalChan().
+		Return(interruptC).
 		Once()
 
 	mockLifecycleSignaler.EXPECT().
@@ -350,10 +387,17 @@ func TestOrchestrator_StartAndWaitForCompletion_WatchdogStartError(t *testing.T)
 	)
 
 	// Act
-	err := orchestratorInstance.StartAndWaitForCompletion(ctx)
+	errC := make(chan error)
+	go func() {
+		errC <- orchestratorInstance.StartAndWaitForCompletion(ctx)
+	}()
 
-	// Assert
-	require.ErrorIs(t, err, expectedError, "StartAndWaitForCompletion should return the error from watchdogClient.Start")
+	<-serverStarted
+
+	sendInterruptSignal(interruptC)
+
+	// Assert — server ran and exited cleanly despite watchdog failure
+	require.NoError(t, <-errC, "Server should continue running even when watchdog Start fails")
 }
 
 func TestOrchestrator_StartAndWaitForCompletion_HappyPath(t *testing.T) {
