@@ -16,6 +16,7 @@ Run MATLAB® using AI applications with the official MATLAB MCP Server from Math
 |--------|------|-------------|
 | [`feature/use-last-session`](../../tree/feature/use-last-session) | Feature | **Session persistence** — reconnect to an existing MATLAB process across server restarts instead of killing and relaunching. Adds `--use-last-session`, `--last-session-file-path`, and `--try-to-adopt` CLI flags. See [`feature_review.md`](feature_review.md) and [`new_feature_notes/persist_session_readme.md`](new_feature_notes/persist_session_readme.md) for details. |
 | [`bugfix/watchdog-non-blocking`](../../tree/bugfix/watchdog-non-blocking) | Bugfix | **Non-blocking watchdog startup** — prevents the entire MCP server from crashing if the watchdog process fails to initialize. Makes `watchdog.Start()` errors non-fatal and `watchdog.Stop()` non-blocking. See [`new_feature_notes/non_blocking_watchdog.md`](new_feature_notes/non_blocking_watchdog.md) for details. |
+| [`bugfix/echo-output-to-command-window`](../../tree/bugfix/echo-output-to-command-window) | Bugfix | **Echo output to command window** — output from MCP tool execution (`evaluate_matlab_code`, `run_matlab_file`) is now displayed in both the MATLAB command window and returned to the MCP client. |
 
 ### Additional Arguments (from this fork)
 

@@ -43,11 +43,6 @@ func Handler(configFactory ConfigFactory, usecase Usecase, globalMATLAB entities
 		sessionLogger.Info("Executing Run MATLAB File tool")
 		defer sessionLogger.Info("Done - Executing Run MATLAB File tool")
 
-		config, messagesErr := configFactory.Config()
-		if messagesErr != nil {
-			return tools.RichContent{}, messagesErr
-		}
-
 		client, err := globalMATLAB.Client(ctx, sessionLogger)
 		if err != nil {
 			return tools.RichContent{}, err
@@ -55,7 +50,7 @@ func Handler(configFactory ConfigFactory, usecase Usecase, globalMATLAB entities
 
 		response, err := usecase.Execute(ctx, sessionLogger, client, runmatlabfile.Args{
 			ScriptPath:    inputs.ScriptPath,
-			CaptureOutput: !config.ShouldShowMATLABDesktop(),
+			CaptureOutput: true,
 		})
 		if err != nil {
 			return tools.RichContent{}, err

@@ -43,11 +43,6 @@ func Handler(configFactory ConfigFactory, usecase Usecase, globalMATLAB entities
 		sessionLogger.Info("Executing Eval tool")
 		defer sessionLogger.Info("Done - Executing Eval tool")
 
-		config, messagesErr := configFactory.Config()
-		if messagesErr != nil {
-			return tools.RichContent{}, messagesErr
-		}
-
 		client, err := globalMATLAB.Client(ctx, sessionLogger)
 		if err != nil {
 			return tools.RichContent{}, err
@@ -56,7 +51,7 @@ func Handler(configFactory ConfigFactory, usecase Usecase, globalMATLAB entities
 		response, err := usecase.Execute(ctx, sessionLogger, client, evalmatlabcode.Args{
 			Code:          inputs.Code,
 			ProjectPath:   inputs.ProjectPath,
-			CaptureOutput: !config.ShouldShowMATLABDesktop(),
+			CaptureOutput: true,
 		})
 		if err != nil {
 			return tools.RichContent{}, err
