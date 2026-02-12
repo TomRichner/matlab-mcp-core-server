@@ -736,9 +736,10 @@ func TestWatchdog_Stop_StopErrors(t *testing.T) {
 	assert.ErrorIs(t, err, expectedError, "Error should be the Stop error")
 }
 
-func TestWatchdog_Stop_WaitsIfNotStarted(t *testing.T) {
-	// Arrange
-	mockLogger := testutils.NewInspectableLogger()
+func TestWatchdog_Stop_ReturnsNilIfNotStarted(t *testing.T) {
+	// If Start() was never called (or failed), Stop() must not block.
+	// The old behavior (<-w.startedC) caused a fatal deadlock when
+	// the watchdog socket connection timed out during Start().
 
 	mockWatchdogProcess := &watchdogmocks.MockWatchdogProcess{}
 	defer mockWatchdogProcess.AssertExpectations(t)
@@ -755,44 +756,9 @@ func TestWatchdog_Stop_WaitsIfNotStarted(t *testing.T) {
 	mockClient := &transportmocks.MockClient{}
 	defer mockClient.AssertExpectations(t)
 
-	mockSocket := &socketmocks.MockSocket{}
-	defer mockSocket.AssertExpectations(t)
-
-	expectedSocketPath := "socket-path"
-
-	mockLoggerFactory.EXPECT().
-		GetGlobalLogger().
-		Return(mockLogger, nil).
-		Once()
-
-	mockWatchdogProcess.EXPECT().
-		StartNewProcess().
-		Return(nil).
-		Once()
-
 	mockClientFactory.EXPECT().
 		New().
 		Return(mockClient).
-		Once()
-
-	mockSocketFactory.EXPECT().
-		Socket().
-		Return(mockSocket, nil).
-		Once()
-
-	mockSocket.EXPECT().
-		Path().
-		Return(expectedSocketPath).
-		Once()
-
-	mockClient.EXPECT().
-		Connect(expectedSocketPath).
-		Return(nil).
-		Once()
-
-	mockClient.EXPECT().
-		SendStop().
-		Return(transportmessages.ShutdownResponse{}, nil).
 		Once()
 
 	watchdogInstance := watchdog.New(
@@ -802,21 +768,9 @@ func TestWatchdog_Stop_WaitsIfNotStarted(t *testing.T) {
 		mockSocketFactory,
 	)
 
-	// Act & Assert
-	errC := make(chan error)
-	go func() {
-		errC <- watchdogInstance.Stop()
-	}()
+	// Act — Stop without ever calling Start
+	err := watchdogInstance.Stop()
 
-	select {
-	case <-errC:
-		t.Fatal("Stop should block until started")
-	case <-time.After(10 * time.Millisecond):
-		// Expected behavior: Stop blocks until started
-	}
-
-	err := watchdogInstance.Start()
-	require.NoError(t, err, "Start should not return an error")
-
-	assert.NoError(t, <-errC, "Stop should not return an error")
+	// Assert — should return nil immediately, no deadlock
+	assert.NoError(t, err, "Stop should return nil when Start was never called")
 }

@@ -97,7 +97,12 @@ func (w *Watchdog) RegisterProcessPIDWithWatchdog(processPID int) error {
 }
 
 func (w *Watchdog) Stop() error {
-	<-w.startedC
+	select {
+	case <-w.startedC:
+	default:
+		// Start() never completed — nothing to stop.
+		return nil
+	}
 
 	w.logger.Debug("Sending graceful shutdown signal to watchdog")
 	_, err := w.client.SendStop()
