@@ -6,6 +6,10 @@ Run MATLAB® using AI applications with the official MATLAB MCP Server from Math
 - Write and run MATLAB code.
 - Assess your MATLAB code for style and correctness.
 
+## Bugfix: Echo Output to Command Window
+
+Output from MCP tool execution (`evaluate_matlab_code`, `run_matlab_file`) is now displayed in **both** the MATLAB command window and returned to the MCP client. Previously, output was only returned to the client (in `nodesktop` mode) or only shown in the command window (in `desktop` mode), never both. This fix ensures a consistent experience regardless of display mode. See branch `bugfix/echo-output-to-command-window`.
+
 ## Table of Contents
 
 - [Setup](#setup)

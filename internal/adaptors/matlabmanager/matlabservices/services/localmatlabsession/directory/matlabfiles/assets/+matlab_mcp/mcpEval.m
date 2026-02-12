@@ -4,76 +4,82 @@
 % these files is not supported.
 
 function results = mcpEval(code)
-    % mcpEval A helper function for handling execution of MATLAB code and post-processing
-    % the outputs. The MATLAB MCP Core Server will then convert those to the appropriate MCP Server Tool Content, see:
-    % 
-    % https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-result
-    % 
-    % We use the Live Editor API for majority of the work.
-    %
-    % The entire MATLAB code given by user is treated as code within a single cell
-    % of a unique Live Script. Hence, each execution request can be considered as
-    % creating and running a new Live Script file.
-        
-    % This is largely a re-use of:
-    % https://github.com/mathworks/jupyter-matlab-proxy/blob/057564dccb7de37f052e709f5380e3ece0b2c4a1/src/jupyter_matlab_kernel/matlab/%2Bjupyter/execute.m#L1
+% mcpEval A helper function for handling execution of MATLAB code and post-processing
+% the outputs. The MATLAB MCP Core Server will then convert those to the appropriate MCP Server Tool Content, see:
+%
+% https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-result
+%
+% We use the Live Editor API for majority of the work.
+%
+% The entire MATLAB code given by user is treated as code within a single cell
+% of a unique Live Script. Hence, each execution request can be considered as
+% creating and running a new Live Script file.
 
-    % Copyright 2025-2026 The MathWorks, Inc.
+% This is largely a re-use of:
+% https://github.com/mathworks/jupyter-matlab-proxy/blob/057564dccb7de37f052e709f5380e3ece0b2c4a1/src/jupyter_matlab_kernel/matlab/%2Bjupyter/execute.m#L1
 
-    % Embed user MATLAB code in a try-catch block for MATLAB versions less than R2022b.
-    % This is will disable inbuilt ErrorRecovery mechanism. Any exceptions created in
-    % user code would be handled by +matlab_mcp/getOrStashExceptions.m
-    if isMATLABReleaseOlderThan("R2022b")
-        code = sprintf(['try\n'...
-            '%s\n'...
-            'catch MCPME\n'...
-            'matlab_mcp.getOrStashExceptions(MCPME)\n'...
-            'clear MCPME\n'...
-            'end'], code);
-    end
+% Copyright 2025-2026 The MathWorks, Inc.
 
-    fileToShowErrors = 'matlab_mcp_core_server';
+% Embed user MATLAB code in a try-catch block for MATLAB versions less than R2022b.
+% This is will disable inbuilt ErrorRecovery mechanism. Any exceptions created in
+% user code would be handled by +matlab_mcp/getOrStashExceptions.m
+if isMATLABReleaseOlderThan("R2022b")
+    code = sprintf(['try\n'...
+        '%s\n'...
+        'catch MCPME\n'...
+        'matlab_mcp.getOrStashExceptions(MCPME)\n'...
+        'clear MCPME\n'...
+        'end'], code);
+end
 
-    request = struct( ...
-        'requestId', 'matlab_mcp_core_server',...
-        'editorId', 'matlab_mcp_core_server',...
-        'fullText', code,...
-        'fullFilePath', fileToShowErrors);
+fileToShowErrors = 'matlab_mcp_core_server';
 
-    request = updateRequest(request, code);
+request = struct( ...
+    'requestId', 'matlab_mcp_core_server',...
+    'editorId', 'matlab_mcp_core_server',...
+    'fullText', code,...
+    'fullFilePath', fileToShowErrors);
 
-    hotlinksPreviousState = feature('hotlinks','off');
-    hotlinksCleanupObj = onCleanup(@() feature('hotlinks', hotlinksPreviousState));
+request = updateRequest(request, code);
 
-    resp = jsondecode(matlab.internal.editor.evaluateSynchronousRequest(request));
+hotlinksPreviousState = feature('hotlinks','off');
+hotlinksCleanupObj = onCleanup(@() feature('hotlinks', hotlinksPreviousState));
 
-    results = jsonencode(processOutputs(resp.outputs));
+resp = jsondecode(matlab.internal.editor.evaluateSynchronousRequest(request));
+
+processedOutputs = processOutputs(resp.outputs);
+
+% Echo captured text outputs to the MATLAB command window so they are
+% visible in both the IDE and the MCP client response.
+echoOutputsToCommandWindow(processedOutputs);
+
+results = jsonencode(processedOutputs);
 end
 
 % Helper function to update fields in the request based on MATLAB and LiveEditor
 % API version.
 function request = updateRequest(request, code)
-    % Support for MATLAB version <= R2023a.
-    if isMATLABReleaseOlderThan("R2023b")
-        request = updateRequestFromBefore23b(request, code);
-    else
-        % Support for MATLAB version >= R2023b.
+% Support for MATLAB version <= R2023a.
+if isMATLABReleaseOlderThan("R2023b")
+    request = updateRequestFromBefore23b(request, code);
+else
+    % Support for MATLAB version >= R2023b.
 
-        % To maintain backwards compatibility, each case in the switch
-        % encodes conversion from the version number in the case
-        % to the current version.
-        switch matlab.internal.editor.getApiVersion('synchronous')
-            case 1
-                request = updateRequestFromVersion1(request, code);
-            case 2
-                request = updateRequestFromVersion2(request, code);
-            otherwise
-                error("Invalid API version. Create an issue at https://github.com/matlab/matlab-mcp-core-server for further support.");
-        end
+    % To maintain backwards compatibility, each case in the switch
+    % encodes conversion from the version number in the case
+    % to the current version.
+    switch matlab.internal.editor.getApiVersion('synchronous')
+        case 1
+            request = updateRequestFromVersion1(request, code);
+        case 2
+            request = updateRequestFromVersion2(request, code);
+        otherwise
+            error("Invalid API version. Create an issue at https://github.com/matlab/matlab-mcp-core-server for further support.");
     end
+end
 
-    % Helper function to update fields in the request for MATLAB versions less than
-    % R2023b
+% Helper function to update fields in the request for MATLAB versions less than
+% R2023b
     function request = updateRequestFromBefore23b(request, code)
         jsonedRegionList = jsonencode(struct(...
             'regionLineNumber',1,...
@@ -84,14 +90,14 @@ function request = updateRequest(request, code)
         request.regionArray = jsonedRegionList;
     end
 
-    % Helper function to update fields in the request when LiveEditor API version is 1.
+% Helper function to update fields in the request when LiveEditor API version is 1.
     function request = updateRequestFromVersion1(request, code)
         request.sectionBoundaries = [];
         request.startLine = 1;
         request.endLine = builtin('count', code, newline) + 1;
     end
 
-    % Helper function to update fields in the request when LiveEditor API version is 2.
+% Helper function to update fields in the request when LiveEditor API version is 2.
     function request = updateRequestFromVersion2(request, code)
         request = updateRequestFromVersion1(request, code);
 
@@ -101,63 +107,63 @@ function request = updateRequest(request, code)
 end
 
 function result = processOutputs(outputs)
-    result =cell(1,length(outputs));
-    figureTrackingMap = containers.Map;
+result =cell(1,length(outputs));
+figureTrackingMap = containers.Map;
 
-    % Post process each captured output based on its type.
-    for ii = 1:length(outputs)
-        out = outputs(ii);
-        outputData = out.outputData;
-        switch out.type
-            case 'matrix'
-                result{ii} = processMatrix(outputData);
-            case 'variable'
-                result{ii} = processVariable(outputData);
-            case 'variableString'
-                result{ii} = processVariableString(outputData);
-            case 'symbolic'
-                result{ii} = processSymbolic(outputData);
-            case 'error'
-                result{ii} = processStream('stderr', outputData.text);
-            case 'warning'
-                result{ii} = processStream('stderr', outputData.text);
-            case 'text'
-                result{ii} = processStream('stdout', outputData.text);
-            case 'stderr'
-                result{ii} = processStream('stderr', outputData.text);
-            case 'figure'
-                % 'figure' outputType may not necessarily contain the actual image.
-                % Hence, if the 'figure' is a placeholder, we store its position in
-                % a map to preserve the ordering. In a later 'figure' output, if the
-                % actual image data is present, we store the image in the corresponding
-                % placeholder position if it exists, else the current position.
-                if isfield(outputData, 'figurePlaceHolderId')
-                    id = outputData.figurePlaceHolderId;
-                    if ~figureTrackingMap.isKey(id)
-                        figureTrackingMap(id) = ii;
-                    end
-                elseif isfield(outputData, 'figureImage')
-                    id = outputData.figureId;
-                    if figureTrackingMap.isKey(id)
-                        idx = figureTrackingMap(id);
-                    else
-                        idx = ii;
-                    end
-                    result{idx} = processFigure(outputData.figureImage);
+% Post process each captured output based on its type.
+for ii = 1:length(outputs)
+    out = outputs(ii);
+    outputData = out.outputData;
+    switch out.type
+        case 'matrix'
+            result{ii} = processMatrix(outputData);
+        case 'variable'
+            result{ii} = processVariable(outputData);
+        case 'variableString'
+            result{ii} = processVariableString(outputData);
+        case 'symbolic'
+            result{ii} = processSymbolic(outputData);
+        case 'error'
+            result{ii} = processStream('stderr', outputData.text);
+        case 'warning'
+            result{ii} = processStream('stderr', outputData.text);
+        case 'text'
+            result{ii} = processStream('stdout', outputData.text);
+        case 'stderr'
+            result{ii} = processStream('stderr', outputData.text);
+        case 'figure'
+            % 'figure' outputType may not necessarily contain the actual image.
+            % Hence, if the 'figure' is a placeholder, we store its position in
+            % a map to preserve the ordering. In a later 'figure' output, if the
+            % actual image data is present, we store the image in the corresponding
+            % placeholder position if it exists, else the current position.
+            if isfield(outputData, 'figurePlaceHolderId')
+                id = outputData.figurePlaceHolderId;
+                if ~figureTrackingMap.isKey(id)
+                    figureTrackingMap(id) = ii;
                 end
-            case 'text/html'
-                result{ii} = processHtml(outputData);
-        end
+            elseif isfield(outputData, 'figureImage')
+                id = outputData.figureId;
+                if figureTrackingMap.isKey(id)
+                    idx = figureTrackingMap(id);
+                else
+                    idx = ii;
+                end
+                result{idx} = processFigure(outputData.figureImage);
+            end
+        case 'text/html'
+            result{ii} = processHtml(outputData);
     end
+end
 
-    ME = matlab_mcp.getOrStashExceptions([], true);
-    if ~isempty(ME)
-        result{end+1} = processStream('stderr', ME.message);
-    end
+ME = matlab_mcp.getOrStashExceptions([], true);
+if ~isempty(ME)
+    result{end+1} = processStream('stderr', ME.message);
+end
 
-    % Helper functions to post process output of type 'matrix', 'variable' and
-    % 'variableString'. These outputs are of HTML type due to various HTML tags
-    % used in MATLAB outputs such as the <strong> tag in tables.
+% Helper functions to post process output of type 'matrix', 'variable' and
+% 'variableString'. These outputs are of HTML type due to various HTML tags
+% used in MATLAB outputs such as the <strong> tag in tables.
     function result = processText(text)
         result.type = 'execute_result';
         result.mimetype = {"text/html", "text/plain"};
@@ -196,9 +202,9 @@ function result = processOutputs(outputs)
         result = processText(text);
     end
 
-    % Helper function for post-processing symbolic outputs. The captured output
-    % contains MathML representation of symbolic expressions. We use EquationRenderer JS API to
-    % convert the MathML to LaTeX values.
+% Helper function for post-processing symbolic outputs. The captured output
+% contains MathML representation of symbolic expressions. We use EquationRenderer JS API to
+% convert the MathML to LaTeX values.
     function result = processSymbolic(output)
         % Use persistent variables to avoid loading multiple webwindows.
         persistent webwindow;
@@ -243,15 +249,15 @@ function result = processOutputs(outputs)
         result.value = {latexcode};
     end
 
-    % Helper function for processing outputs of stream type such as 'stdout' and 'stderr'
+% Helper function for processing outputs of stream type such as 'stdout' and 'stderr'
     function result = processStream(stream, text)
         result.type = 'stream';
         result.content.name = stream;
         result.content.text = text;
     end
 
-    % Helper function for processing figure outputs.
-    % base64Data will be 'data:image/png;base64,<base64_value>'
+% Helper function for processing figure outputs.
+% base64Data will be 'data:image/png;base64,<base64_value>'
     function result = processFigure(base64Data)
         pattern = "data:(?<mimetype>.*);base64,(?<value>.*)";
         result = builtin('regexp', base64Data, pattern, 'names');
@@ -262,17 +268,45 @@ function result = processOutputs(outputs)
         result.type = 'execute_result';
     end
 
-    % Helper function for processing text/html mime-type outputs.
+% Helper function for processing text/html mime-type outputs.
     function result = processHtml(text)
         result.type = 'execute_result';
         result.mimetype = {"text/html", "text/plain"};
         result.value = [sprintf("%s",text), text];
     end
 
-    % Helper function to notify browser page load finished
+% Helper function to notify browser page load finished
     function pageLoadCallback(webwindow,~,idler)
         idler.stopIdling();
         % Disable alert box which is preventing running JS after certain period of time.
         webwindow.executeJS('window.alert = function(){}');
     end
+end
+
+% Echo captured text outputs to the MATLAB command window.
+% This runs after evaluateSynchronousRequest has finished, so fprintf
+% output goes directly to the command window rather than being captured.
+function echoOutputsToCommandWindow(outputs)
+for ii = 1:length(outputs)
+    if isempty(outputs{ii})
+        continue;
+    end
+    entry = outputs{ii};
+    switch entry.type
+        case 'stream'
+            if strcmp(entry.content.name, 'stdout')
+                fprintf('%s', entry.content.text);
+            elseif strcmp(entry.content.name, 'stderr')
+                fprintf(2, '%s', entry.content.text);
+            end
+        case 'execute_result'
+            % Find text/plain mimetype and print it
+            for jj = 1:length(entry.mimetype)
+                if strcmp(entry.mimetype{jj}, 'text/plain')
+                    fprintf('%s\n', entry.value{jj});
+                    break;
+                end
+            end
+    end
+end
 end
