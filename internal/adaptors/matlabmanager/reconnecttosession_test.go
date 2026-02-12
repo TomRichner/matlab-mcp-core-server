@@ -7,6 +7,7 @@ import (
 
 	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/matlabmanager"
 	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/matlabmanager/matlabsessionclient/embeddedconnector"
+	"github.com/matlab/matlab-mcp-core-server/internal/adaptors/matlabmanager/matlabsessionstore"
 	"github.com/matlab/matlab-mcp-core-server/internal/entities"
 	"github.com/matlab/matlab-mcp-core-server/internal/testutils"
 	mocks "github.com/matlab/matlab-mcp-core-server/mocks/adaptors/matlabmanager"
@@ -219,4 +220,122 @@ func TestMATLABManager_LastConnectionDetails_PopulatedAfterStart(t *testing.T) {
 	assert.Equal(t, "9876", details.Port)
 	assert.Equal(t, "session-key", details.APIKey)
 	assert.Equal(t, []byte("cert-data"), details.CertificatePEM)
+}
+
+func TestMATLABManager_ReconnectToSession_StoresLastConnectionDetails(t *testing.T) {
+	// This test verifies the bug fix: ReconnectToSession now stores
+	// lastConnectionDetails so that writeSessionFile can persist them.
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	mockSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+	defer mockSessionClient.AssertExpectations(t)
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:           "localhost",
+		Port:           "12345",
+		APIKey:         "reconnect-key",
+		CertificatePEM: []byte("reconnect-cert"),
+		MatlabPID:      54321,
+	}
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(mockSessionClient, nil).
+		Once()
+
+	mockSessionClient.EXPECT().
+		Ping(mock.Anything, mockLogger.AsMockArg()).
+		Return(entities.PingResponse{IsAlive: true}).
+		Once()
+
+	mockSessionStore.EXPECT().
+		Add(mock.AnythingOfType("*matlabmanager.matlabSessionClientWithCleanup")).
+		Return(entities.SessionID(7)).
+		Once()
+
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, false)
+	ctx := t.Context()
+
+	// Act
+	_, err := manager.ReconnectToSession(ctx, mockLogger, connectionDetails)
+	require.NoError(t, err)
+
+	// Assert — LastConnectionDetails should be populated after reconnect
+	details := manager.LastConnectionDetails()
+	require.NotNil(t, details, "LastConnectionDetails must be populated after ReconnectToSession")
+	assert.Equal(t, "localhost", details.Host)
+	assert.Equal(t, "12345", details.Port)
+	assert.Equal(t, "reconnect-key", details.APIKey)
+	assert.Equal(t, []byte("reconnect-cert"), details.CertificatePEM)
+	assert.Equal(t, 54321, details.MatlabPID)
+}
+
+func TestMATLABManager_ReconnectToSession_SetsDetachedMode(t *testing.T) {
+	// This test verifies the bug fix: ReconnectToSession now sets detached
+	// mode on the session wrapper, preventing adopted MATLAB from being killed.
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABServices := &mocks.MockMATLABServices{}
+	defer mockMATLABServices.AssertExpectations(t)
+
+	mockSessionStore := &mocks.MockMATLABSessionStore{}
+	defer mockSessionStore.AssertExpectations(t)
+
+	mockClientFactory := &mocks.MockMATLABSessionClientFactory{}
+	defer mockClientFactory.AssertExpectations(t)
+
+	mockSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+	defer mockSessionClient.AssertExpectations(t)
+
+	connectionDetails := embeddedconnector.ConnectionDetails{
+		Host:   "localhost",
+		Port:   "31415",
+		APIKey: "detach-key",
+	}
+
+	mockClientFactory.EXPECT().
+		New(connectionDetails).
+		Return(mockSessionClient, nil).
+		Once()
+
+	mockSessionClient.EXPECT().
+		Ping(mock.Anything, mockLogger.AsMockArg()).
+		Return(entities.PingResponse{IsAlive: true}).
+		Once()
+
+	// Capture the wrapper that ReconnectToSession adds to the store
+	var capturedWrapper matlabsessionstore.MATLABSessionClientWithCleanup
+	mockSessionStore.EXPECT().
+		Add(mock.AnythingOfType("*matlabmanager.matlabSessionClientWithCleanup")).
+		Run(func(client matlabsessionstore.MATLABSessionClientWithCleanup) {
+			capturedWrapper = client
+		}).
+		Return(entities.SessionID(8)).
+		Once()
+
+	// Create manager with DetachedMode=true
+	manager := matlabmanager.New(mockMATLABServices, mockSessionStore, mockClientFactory, true)
+	ctx := t.Context()
+
+	// Act
+	_, err := manager.ReconnectToSession(ctx, mockLogger, connectionDetails)
+	require.NoError(t, err)
+
+	// Assert — StopSession should be a no-op in detached mode
+	// If detached were NOT set, StopSession would call Eval("exit()") on mockSessionClient.
+	// Since detached=true, StopSession returns nil immediately without calling Eval.
+	require.NotNil(t, capturedWrapper)
+	stopErr := capturedWrapper.StopSession(ctx, mockLogger)
+	require.NoError(t, stopErr)
+
+	// mockSessionClient.AssertExpectations verifies Eval was never called
 }

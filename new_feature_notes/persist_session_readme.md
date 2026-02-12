@@ -43,12 +43,11 @@ Files use PID-namespaced names: `session_vsc<ppid>_ml<mpid>.json`
 {
   "api_key": "...",
   "port": "31415",
-  "cert_pem": "<base64-encoded TLS certificate PEM>",
-  "session_dir": "",
-  "parent_pid": 12345,
-  "matlab_pid": 67890
+  "cert_pem": "<base64-encoded TLS certificate PEM>"
 }
 ```
+
+> **Note:** PIDs are encoded in the **filename**, not in the JSON body. The `session_dir`, `parent_pid`, and `matlab_pid` fields were removed as vestigial — they were written but never read.
 
 ## How It Works
 
@@ -110,10 +109,11 @@ type SessionPersistenceConfig struct {
     UseLastSession bool
     SessionFileDir string
     TryToAdopt     bool
+    ParentPIDFunc  func() int // optional; defaults to os.Getppid if nil
 }
 ```
 
-A zero-value struct disables the feature. This is injected via wire at construction time, avoiding any extra `Config()` calls during the hot path. Existing tests pass `SessionPersistenceConfig{}` and require zero changes to their mock expectations.
+A zero-value struct disables the feature. This is injected via wire at construction time, avoiding any extra `Config()` calls during the hot path. Existing tests pass `SessionPersistenceConfig{}` and require zero changes to their mock expectations. `ParentPIDFunc` makes `os.Getppid()` injectable for testing — tests inject a controlled PID so they don't depend on the test runner's actual parent PID.
 
 ### Type: `embeddedconnector.ConnectionDetails`
 
@@ -148,7 +148,7 @@ Added a `detached bool` field. When `detached` is true, `StopSession()` returns 
 
 ### Method: `matlabmanager.LastConnectionDetails()`
 
-Returns the `*embeddedconnector.ConnectionDetails` from the most recent `StartMATLABSession()` call. Used by `writeSessionFile()` to persist connection details after launch.
+Returns the `*embeddedconnector.ConnectionDetails` from the most recent `StartMATLABSession()` or `ReconnectToSession()` call. Used by `writeSessionFile()` to persist connection details after launch or adoption.
 
 ### Interface Changes
 
@@ -168,8 +168,8 @@ The **global** `entities.MATLABManager` interface was NOT changed — these meth
 | `internal/adaptors/sessionfile/sessionfile.go` | PID-namespaced session file scan/write/delete/aliveness |
 | `internal/adaptors/sessionfile/sessionfile_test.go` | 14 tests |
 | `internal/adaptors/matlabmanager/reconnecttosession.go` | ReconnectToSession method |
-| `internal/adaptors/matlabmanager/reconnecttosession_test.go` | 5 tests |
-| `internal/adaptors/globalmatlab/globalmatlab_session_persistence_test.go` | 12 tests |
+| `internal/adaptors/matlabmanager/reconnecttosession_test.go` | 7 tests |
+| `internal/adaptors/globalmatlab/globalmatlab_session_persistence_test.go` | 13 tests |
 
 ### Modified Files
 | File | Changes |
@@ -200,11 +200,11 @@ The **global** `entities.MATLABManager` interface was NOT changed — these meth
 
 ## Test Coverage
 
-**31 tests total**, all passing:
+**34 tests total**, all passing:
 
 - **sessionfile** (14): Write (PID-namespaced), ScanSessions (happy path, empty dir, nonexistent dir, malformed filenames, invalid JSON), DeleteFile, IsProcessAlive, DefaultDir, ResolveDir
-- **reconnecttosession** (5): Happy path, client factory error, ping failure, LastConnectionDetails nil/populated
-- **globalmatlab session persistence** (12): Reconnect from PID-namespaced file, fallback on failure, writes file after launch with PID verification, no-ops when disabled, skips reconnect when no file, garbage collects dead sessions, NewSessionPersistenceConfig variants (disabled, enabled, custom path, config error, with TryToAdopt)
+- **reconnecttosession** (7): Happy path, client factory error, ping failure, LastConnectionDetails nil/populated, StoresLastConnectionDetails after reconnect, SetsDetachedMode on reconnected wrapper
+- **globalmatlab session persistence** (13): Reconnect from PID-namespaced file, fallback on failure, writes file after launch with PID verification, no-ops when disabled, skips reconnect when no file, garbage collects dead sessions, skips foreign live sessions, NewSessionPersistenceConfig variants (disabled, enabled, custom path, config error, with TryToAdopt)
 
 All pre-existing globalmatlab tests continue to pass with zero mock expectation changes.
 

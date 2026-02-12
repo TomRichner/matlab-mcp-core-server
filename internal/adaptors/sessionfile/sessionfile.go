@@ -16,13 +16,11 @@ import (
 var sessionFilePattern = regexp.MustCompile(`^session_vsc(\d+)_ml(\d+)\.json$`)
 
 // SessionInfo contains the connection details needed to reconnect to a MATLAB session.
+// PIDs are encoded in the filename (session_vsc<ppid>_ml<mpid>.json), not in the JSON body.
 type SessionInfo struct {
-	APIKey     string `json:"api_key"`
-	Port       string `json:"port"`
-	CertPEM    string `json:"cert_pem"`
-	SessionDir string `json:"session_dir"`
-	ParentPID  int    `json:"parent_pid"`
-	MatlabPID  int    `json:"matlab_pid"`
+	APIKey  string `json:"api_key"`
+	Port    string `json:"port"`
+	CertPEM string `json:"cert_pem"`
 }
 
 // ScannedSession represents a session file found during directory scanning.
@@ -43,9 +41,6 @@ func Write(dir string, info SessionInfo, parentPID int, matlabPID int) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create session file directory %s: %w", dir, err)
 	}
-
-	info.ParentPID = parentPID
-	info.MatlabPID = matlabPID
 
 	data, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {

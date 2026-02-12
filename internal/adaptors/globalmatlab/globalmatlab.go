@@ -42,6 +42,7 @@ type SessionPersistenceConfig struct {
 	UseLastSession bool
 	SessionFileDir string
 	TryToAdopt     bool
+	ParentPIDFunc  func() int // optional; defaults to os.Getppid if nil
 }
 
 // NewSessionPersistenceConfig creates a SessionPersistenceConfig from the application config.
@@ -87,6 +88,7 @@ type GlobalMATLAB struct {
 	useLastSession bool
 	sessionFileDir string
 	tryToAdopt     bool
+	parentPIDFunc  func() int
 }
 
 func New(
@@ -108,7 +110,15 @@ func New(
 		useLastSession: sessionPersistence.UseLastSession,
 		sessionFileDir: sessionPersistence.SessionFileDir,
 		tryToAdopt:     sessionPersistence.TryToAdopt,
+		parentPIDFunc:  parentPIDFuncOrDefault(sessionPersistence.ParentPIDFunc),
 	}
+}
+
+func parentPIDFuncOrDefault(fn func() int) func() int {
+	if fn != nil {
+		return fn
+	}
+	return os.Getppid
 }
 
 func (g *GlobalMATLAB) Client(ctx context.Context, logger entities.Logger) (entities.MATLABSessionClient, error) {
@@ -224,7 +234,7 @@ func (g *GlobalMATLAB) tryReconnectFromSessions(ctx context.Context, logger enti
 		return false
 	}
 
-	myPPID := os.Getppid()
+	myPPID := g.parentPIDFunc()
 	var orphanCandidates []sessionfile.ScannedSession
 
 	for _, s := range sessions {
@@ -278,6 +288,7 @@ func (g *GlobalMATLAB) tryReconnectToSession(ctx context.Context, logger entitie
 	}
 
 	connectionDetails := embeddedconnector.ConnectionDetails{
+		// Host is always "localhost" — only local MATLAB connections are supported.
 		Host:           "localhost",
 		Port:           s.Info.Port,
 		APIKey:         s.Info.APIKey,
@@ -308,7 +319,7 @@ func (g *GlobalMATLAB) writeSessionFile(logger entities.Logger) {
 		return
 	}
 
-	parentPID := os.Getppid()
+	parentPID := g.parentPIDFunc()
 	matlabPID := details.MatlabPID
 
 	info := sessionfile.SessionInfo{

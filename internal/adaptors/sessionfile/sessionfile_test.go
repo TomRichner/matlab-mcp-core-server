@@ -17,10 +17,9 @@ func TestWrite_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 
 	info := sessionfile.SessionInfo{
-		APIKey:     "test-api-key",
-		Port:       "31415",
-		CertPEM:    "dGVzdC1jZXJ0LXBlbQ==",
-		SessionDir: "/some/session/dir",
+		APIKey:  "test-api-key",
+		Port:    "31415",
+		CertPEM: "dGVzdC1jZXJ0LXBlbQ==",
 	}
 
 	err := sessionfile.Write(dir, info, 12345, 67890)
@@ -34,8 +33,6 @@ func TestWrite_HappyPath(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &written))
 	assert.Equal(t, "test-api-key", written.APIKey)
 	assert.Equal(t, "31415", written.Port)
-	assert.Equal(t, 12345, written.ParentPID)
-	assert.Equal(t, 67890, written.MatlabPID)
 }
 
 func TestWrite_CreatesDirectoryIfMissing(t *testing.T) {

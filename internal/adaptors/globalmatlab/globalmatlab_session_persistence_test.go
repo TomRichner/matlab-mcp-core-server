@@ -45,18 +45,18 @@ func TestGlobalMATLAB_Client_ReconnectsFromSessionFile(t *testing.T) {
 	expectedMATLABRoot := filepath.Join("some", "matlab", "root")
 	expectedMATLABStartingDir := filepath.Join("some", "starting", "dir")
 
-	// Write a session file with our parent PID (so tryReconnectFromSessions finds it)
+	// Write a session file with a known parent PID (injected via ParentPIDFunc)
 	// and our own PID as the MATLAB PID (so IsProcessAlive returns true)
 	sessionDir := t.TempDir()
 	certPEM := []byte("test-certificate-pem")
-	myPPID := os.Getppid()
+	fakeParentPID := 11111
 	fakeMatlabPID := os.Getpid() // use our own PID so IsProcessAlive returns true
 	info := sessionfile.SessionInfo{
 		APIKey:  "saved-api-key",
 		Port:    "54321",
 		CertPEM: base64.StdEncoding.EncodeToString(certPEM),
 	}
-	require.NoError(t, sessionfile.Write(sessionDir, info, myPPID, fakeMatlabPID))
+	require.NoError(t, sessionfile.Write(sessionDir, info, fakeParentPID, fakeMatlabPID))
 
 	expectedConnectionDetails := embeddedconnector.ConnectionDetails{
 		Host:           "localhost",
@@ -96,6 +96,7 @@ func TestGlobalMATLAB_Client_ReconnectsFromSessionFile(t *testing.T) {
 		globalmatlab.SessionPersistenceConfig{
 			UseLastSession: true,
 			SessionFileDir: sessionDir,
+			ParentPIDFunc:  func() int { return fakeParentPID },
 		},
 	)
 
@@ -137,14 +138,14 @@ func TestGlobalMATLAB_Client_FallsBackToNewSessionWhenReconnectFails(t *testing.
 	// Write a session file that will fail to reconnect
 	sessionDir := t.TempDir()
 	certPEM := []byte("stale-cert")
-	myPPID := os.Getppid()
+	fakeParentPID := 22222
 	fakeMatlabPID := os.Getpid() // alive so it gets past IsProcessAlive check
 	info := sessionfile.SessionInfo{
 		APIKey:  "stale-key",
 		Port:    "11111",
 		CertPEM: base64.StdEncoding.EncodeToString(certPEM),
 	}
-	require.NoError(t, sessionfile.Write(sessionDir, info, myPPID, fakeMatlabPID))
+	require.NoError(t, sessionfile.Write(sessionDir, info, fakeParentPID, fakeMatlabPID))
 
 	expectedConnectionDetails := embeddedconnector.ConnectionDetails{
 		Host:           "localhost",
@@ -213,6 +214,7 @@ func TestGlobalMATLAB_Client_FallsBackToNewSessionWhenReconnectFails(t *testing.
 		globalmatlab.SessionPersistenceConfig{
 			UseLastSession: true,
 			SessionFileDir: sessionDir,
+			ParentPIDFunc:  func() int { return fakeParentPID },
 		},
 	)
 
@@ -227,7 +229,7 @@ func TestGlobalMATLAB_Client_FallsBackToNewSessionWhenReconnectFails(t *testing.
 	sessions, _ := sessionfile.ScanSessions(sessionDir)
 	// The session file for myPPID/fakeMatlabPID should have been deleted after failed reconnect
 	for _, s := range sessions {
-		assert.NotEqual(t, myPPID, s.ParentPID, "stale session file should have been deleted")
+		assert.NotEqual(t, fakeParentPID, s.ParentPID, "stale session file should have been deleted")
 	}
 }
 
@@ -260,6 +262,7 @@ func TestGlobalMATLAB_Client_WritesSessionFileAfterLaunch(t *testing.T) {
 	sessionDir := t.TempDir()
 	certPEM := []byte("new-cert-pem-data")
 	fakeMatlabPID := 99999
+	fakeParentPID := 33333
 
 	// Init phase
 	mockMATLABRootSelector.EXPECT().
@@ -319,6 +322,7 @@ func TestGlobalMATLAB_Client_WritesSessionFileAfterLaunch(t *testing.T) {
 		globalmatlab.SessionPersistenceConfig{
 			UseLastSession: true,
 			SessionFileDir: sessionDir,
+			ParentPIDFunc:  func() int { return fakeParentPID },
 		},
 	)
 
@@ -337,7 +341,7 @@ func TestGlobalMATLAB_Client_WritesSessionFileAfterLaunch(t *testing.T) {
 	savedInfo := sessions[0].Info
 	assert.Equal(t, "new-api-key", savedInfo.APIKey)
 	assert.Equal(t, "8888", savedInfo.Port)
-	assert.Equal(t, os.Getppid(), sessions[0].ParentPID)
+	assert.Equal(t, fakeParentPID, sessions[0].ParentPID)
 	assert.Equal(t, fakeMatlabPID, sessions[0].MatlabPID)
 
 	decodedCert, decodeErr := base64.StdEncoding.DecodeString(savedInfo.CertPEM)
@@ -743,4 +747,108 @@ func TestGlobalMATLAB_Client_GarbageCollectsDeadSessions(t *testing.T) {
 	// Verify the stale session file was garbage-collected
 	sessionsAfter, _ := sessionfile.ScanSessions(sessionDir)
 	assert.Empty(t, sessionsAfter, "stale session file should have been garbage-collected")
+}
+
+func TestGlobalMATLAB_Client_SkipsForeignLiveSession(t *testing.T) {
+	// A session file owned by a different, live VS Code instance should not be
+	// adopted, deleted, or reconnected to. It should be left alone.
+	mockLogger := testutils.NewInspectableLogger()
+
+	mockMATLABManager := &mocks.MockMATLABManager{}
+	defer mockMATLABManager.AssertExpectations(t)
+
+	mockMATLABRootSelector := &mocks.MockMATLABRootSelector{}
+	defer mockMATLABRootSelector.AssertExpectations(t)
+
+	mockMATLABStartingDirSelector := &mocks.MockMATLABStartingDirSelector{}
+	defer mockMATLABStartingDirSelector.AssertExpectations(t)
+
+	mockConfig := &configmocks.MockConfig{}
+	defer mockConfig.AssertExpectations(t)
+
+	mockConfigFactory := &mocks.MockConfigFactory{}
+	defer mockConfigFactory.AssertExpectations(t)
+
+	expectedSessionClient := &entitiesmocks.MockMATLABSessionClient{}
+
+	ctx := t.Context()
+	expectedSessionID := entities.SessionID(88)
+	expectedMATLABRoot := filepath.Join("some", "matlab", "root")
+	shouldShowMATLABDesktop := false
+
+	sessionDir := t.TempDir()
+
+	// Write a session file owned by a DIFFERENT parent PID that is alive (use our own PID)
+	foreignParentPID := os.Getpid() // alive — simulates another VS Code window
+	foreignMatlabPID := os.Getpid() // alive too
+	info := sessionfile.SessionInfo{
+		APIKey:  "foreign-key",
+		Port:    "44444",
+		CertPEM: base64.StdEncoding.EncodeToString([]byte("foreign-cert")),
+	}
+	require.NoError(t, sessionfile.Write(sessionDir, info, foreignParentPID, foreignMatlabPID))
+
+	// Our ParentPIDFunc returns a different PID
+	myFakePPID := 77777
+
+	// Setup mocks — no ReconnectToSession expected because the session belongs to another window
+	mockMATLABRootSelector.EXPECT().
+		SelectMATLABRoot(ctx, mockLogger.AsMockArg()).
+		Return(expectedMATLABRoot, nil).
+		Once()
+
+	mockMATLABStartingDirSelector.EXPECT().
+		SelectMatlabStartingDir().
+		Return("", assert.AnError).
+		Once()
+
+	mockConfigFactory.EXPECT().
+		Config().
+		Return(mockConfig, nil).
+		Once()
+
+	mockConfig.EXPECT().
+		ShouldShowMATLABDesktop().
+		Return(shouldShowMATLABDesktop).
+		Once()
+
+	mockMATLABManager.EXPECT().
+		StartMATLABSession(mock.Anything, mockLogger.AsMockArg(), mock.Anything).
+		Return(expectedSessionID, nil).
+		Once()
+
+	mockMATLABManager.EXPECT().
+		LastConnectionDetails().
+		Return(nil).
+		Once()
+
+	mockMATLABManager.EXPECT().
+		GetMATLABSessionClient(ctx, mockLogger.AsMockArg(), expectedSessionID).
+		Return(expectedSessionClient, nil).
+		Once()
+
+	globalMATLABSession := globalmatlab.New(
+		mockMATLABManager,
+		mockMATLABRootSelector,
+		mockMATLABStartingDirSelector,
+		mockConfigFactory,
+		globalmatlab.SessionPersistenceConfig{
+			UseLastSession: true,
+			SessionFileDir: sessionDir,
+			TryToAdopt:     true,
+			ParentPIDFunc:  func() int { return myFakePPID },
+		},
+	)
+
+	// Act
+	client, err := globalMATLABSession.Client(ctx, mockLogger)
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, expectedSessionClient, client)
+
+	// Verify the foreign session file was NOT deleted — it belongs to another window
+	sessionsAfter, _ := sessionfile.ScanSessions(sessionDir)
+	require.Len(t, sessionsAfter, 1, "foreign session file should NOT be deleted")
+	assert.Equal(t, foreignParentPID, sessionsAfter[0].ParentPID)
 }
