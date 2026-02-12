@@ -3,3 +3,4 @@
 /vendor
 /.env
 AGENTS.md
+.DS_Store
