@@ -6,6 +6,27 @@ Run MATLAB® using AI applications with the official MATLAB MCP Server from Math
 - Write and run MATLAB code.
 - Assess your MATLAB code for style and correctness.
 
+---
+
+## Fork: Community Enhancements
+
+> **Note:** This is a community fork edit by Tom Richner of the [official MathWorks MATLAB MCP Core Server](https://github.com/matlab/matlab-mcp-core-server). The `local/combined` branch merges the following feature and bugfix branches on top of upstream `main`:
+
+| Branch | Type | Description |
+|--------|------|-------------|
+| [`feature/use-last-session`](../../tree/feature/use-last-session) | Feature | **Session persistence** — reconnect to an existing MATLAB process across server restarts instead of killing and relaunching. Adds `--use-last-session`, `--last-session-file-path`, and `--try-to-adopt` CLI flags. See [`feature_review.md`](feature_review.md) and [`new_feature_notes/persist_session_readme.md`](new_feature_notes/persist_session_readme.md) for details. |
+| [`bugfix/watchdog-non-blocking`](../../tree/bugfix/watchdog-non-blocking) | Bugfix | **Non-blocking watchdog startup** — prevents the entire MCP server from crashing if the watchdog process fails to initialize. Makes `watchdog.Start()` errors non-fatal and `watchdog.Stop()` non-blocking. See [`new_feature_notes/non_blocking_watchdog.md`](new_feature_notes/non_blocking_watchdog.md) for details. |
+
+### Additional Arguments (from this fork)
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--use-last-session` | Reconnect to a previously started MATLAB session on startup. If reconnection fails, a new session is started. | `false` |
+| `--last-session-file-path` | Directory for session persistence files. Defaults to OS cache dir (`~/Library/Caches/matlab-mcp/sessions` on macOS). | OS cache dir |
+| `--try-to-adopt` | When used with `--use-last-session`, adopt orphaned MATLAB sessions from dead VS Code windows. | `false` |
+
+---
+
 ## Table of Contents
 
 - [Setup](#setup)
