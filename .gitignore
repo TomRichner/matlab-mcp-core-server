@@ -2,4 +2,6 @@
 /vendor
 /.env
 AGENTS.md
+CLAUDE.md
+.claude/
 .DS_Store
